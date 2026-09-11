@@ -9,7 +9,6 @@ import {
   ChevronRight,
   CircleDollarSign,
   Coffee,
-  Download,
   Edit3,
   History,
   LayoutDashboard,
@@ -19,7 +18,6 @@ import {
   Sparkles,
   Trash2,
   Utensils,
-  Upload,
   Users,
   WalletCards,
   X,
@@ -215,10 +213,6 @@ function App() {
     URL.revokeObjectURL(url);
 
     flash("Backup downloaded");
-  }
-
-  function openBackupPicker() {
-    fileInputRef.current?.click();
   }
 
   function handleBackupUpload(event) {
@@ -470,6 +464,25 @@ function App() {
             <span>Stored on this device</span>
           </div>
 
+          <div className="backup-actions">
+            <button className="backup-btn" onClick={downloadBackup} type="button">
+              <ArrowDownLeft size={15} />
+              <span>Download backup</span>
+            </button>
+
+            <label className="backup-btn upload-btn">
+              <ArrowUpRight size={15} />
+              <span>Upload backup</span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json,.json"
+                onChange={handleBackupUpload}
+                aria-label="Upload RoomLife backup"
+              />
+            </label>
+          </div>
+
           <button className="danger-link" onClick={clearAll}>
             <Trash2 size={16} />
             Delete all data
@@ -525,34 +538,6 @@ function App() {
             </button>
           )}
         </header>
-
-        <div className="backup-bar">
-          <div className="backup-copy">
-            <div className="backup-icon"><WalletCards size={17} /></div>
-            <div>
-              <b>Data backup</b>
-              <span>Transfer your expenses to another device.</span>
-            </div>
-          </div>
-          <div className="backup-actions">
-            <button className="backup-btn" onClick={downloadBackup} type="button">
-              <Download size={16} />
-              <span>Download</span>
-            </button>
-            <button className="backup-btn primary" onClick={openBackupPicker} type="button">
-              <Upload size={16} />
-              <span>Upload</span>
-            </button>
-          </div>
-          <input
-            ref={fileInputRef}
-            className="backup-file-input"
-            type="file"
-            accept="application/json,.json"
-            onChange={handleBackupUpload}
-            aria-label="Upload RoomLife backup"
-          />
-        </div>
 
         {page === "dashboard" && (
           <Dashboard

@@ -18,8 +18,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .dot{width:7px;height:7px;background:#62d39b;border-radius:50%}
 .danger-link{display:flex;align-items:center;gap:8px;background:none;border:0;color:#fca5a5;font-size:12px;padding:12px 10px}
 .backup-actions{display:grid;gap:6px;padding:9px 0;border-bottom:1px solid #273142}
-.backup-btn{width:100%;border:1px solid #2d3748;background:#1b2535;color:#d8dee7;border-radius:9px;padding:9px 10px;display:flex;align-items:center;gap:8px;font-size:10px;font-weight:800;text-align:left}
+.backup-btn{width:100%;border:1px solid #2d3748;background:#1b2535;color:#d8dee7;border-radius:9px;padding:10px;display:flex;align-items:center;gap:8px;font-size:10px;font-weight:800;text-align:left;min-height:38px;transition:background .18s ease,transform .18s ease}
 .backup-btn:hover{background:#263244}
+.backup-btn:active{transform:scale(.99)}
 .upload-btn{cursor:pointer}
 .upload-btn input{display:none}
 .backdrop{display:none}
