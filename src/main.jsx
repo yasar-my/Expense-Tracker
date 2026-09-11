@@ -1,62 +1,50 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  ArrowLeft,
-  BarChart3,
+  ArrowDownLeft,
+  ArrowUpRight,
   BedDouble,
   CalendarDays,
   Check,
   ChevronRight,
   CircleDollarSign,
   Coffee,
+  Download,
   Edit3,
-  FileText,
-  HandCoins,
-  IndianRupee,
+  History,
   LayoutDashboard,
   Menu,
   Plus,
   ReceiptText,
   Sparkles,
   Trash2,
-  TrendingDown,
-  TrendingUp,
-  UserRound,
-  Users,
   Utensils,
+  Upload,
+  Users,
+  WalletCards,
   X,
-  TrainFront,
-  WalletCards
+  TrainFront
 } from "lucide-react";
 import "./styles.css";
 
 const KEY = "roomlife-expenses-v1";
-const MONEY_KEY = "roomlife-money-v1";
 
 const today = () => new Date().toISOString().slice(0, 10);
-
-const money = (n) =>
-  `₹${Number(n || 0).toLocaleString("en-IN")}`;
+const money = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 
 const starter = {
   travel: [],
   food: [],
   snacks: [],
   rent: [],
-  other: []
-};
-
-const moneyStarter = {
-  transactions: []
+  other: [],
+  money: []
 };
 
 function loadData() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY));
-
-    if (!saved) {
-      return starter;
-    }
+    if (!saved) return starter;
 
     return {
       ...starter,
@@ -65,75 +53,85 @@ function loadData() {
       food: Array.isArray(saved.food) ? saved.food : [],
       snacks: Array.isArray(saved.snacks) ? saved.snacks : [],
       rent: Array.isArray(saved.rent) ? saved.rent : [],
-      other: Array.isArray(saved.other) ? saved.other : []
+      other: Array.isArray(saved.other) ? saved.other : [],
+      money: Array.isArray(saved.money) ? saved.money : []
     };
   } catch {
     return starter;
   }
 }
 
-function loadMoneyData() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(MONEY_KEY));
-
-    if (!saved) {
-      return moneyStarter;
-    }
-
-    return {
-      ...moneyStarter,
-      ...saved,
-      transactions: Array.isArray(saved.transactions)
-        ? saved.transactions
-        : []
-    };
-  } catch {
-    return moneyStarter;
+function normalizeBackupData(imported) {
+  if (!imported || typeof imported !== "object") {
+    throw new Error("Invalid backup structure");
   }
+
+  const types = ["travel", "food", "snacks", "rent", "other", "money"];
+  const hasRoomLifeData = types.some((type) => Array.isArray(imported[type]));
+
+  if (!hasRoomLifeData) {
+    throw new Error("No RoomLife data found");
+  }
+
+  const normalized = {};
+
+  types.forEach((type) => {
+    normalized[type] = Array.isArray(imported[type])
+      ? imported[type].filter((item) => item && typeof item === "object")
+      : [];
+  });
+
+  return normalized;
+}
+
+function getItemFingerprint(item) {
+  return JSON.stringify({
+    date: item.date || "",
+    amount: Number(item.amount || 0),
+    description: item.description || "",
+    meal: item.meal || "",
+    food: item.food || "",
+    name: item.name || "",
+    month: item.month || "",
+    category: item.category || "",
+    person: item.person || "",
+    type: item.type || ""
+  });
+}
+
+function createId(type) {
+  return `${Date.now()}-${type}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 function App() {
   const [data, setData] = useState(loadData);
-  const [moneyData, setMoneyData] = useState(loadMoneyData);
-
   const [page, setPage] = useState("dashboard");
-
   const [editing, setEditing] = useState(null);
   const [moneyEditing, setMoneyEditing] = useState(null);
-
   const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState("");
+  const fileInputRef = React.useRef(null);
 
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify(data));
   }, [data]);
 
-  useEffect(() => {
-    localStorage.setItem(MONEY_KEY, JSON.stringify(moneyData));
-  }, [moneyData]);
-
   const totals = useMemo(() => {
-    const sum = (a) =>
-      a.reduce((s, x) => s + Number(x.amount || 0), 0);
+    const sum = (items) =>
+      items.reduce((total, item) => total + Number(item.amount || 0), 0);
 
-    const breakfast = sum(
-      data.food.filter((x) => x.meal === "Breakfast")
-    );
-
-    const lunch = sum(
-      data.food.filter((x) => x.meal === "Lunch")
-    );
-
-    const dinner = sum(
-      data.food.filter((x) => x.meal === "Dinner")
-    );
-
+    const breakfast = sum(data.food.filter((x) => x.meal === "Breakfast"));
+    const lunch = sum(data.food.filter((x) => x.meal === "Lunch"));
+    const dinner = sum(data.food.filter((x) => x.meal === "Dinner"));
     const food = breakfast + lunch + dinner;
-
     const travel = sum(data.travel);
     const snacks = sum(data.snacks);
     const rent = sum(data.rent);
     const other = sum(data.other);
+
+    const moneyGiven = sum(data.money.filter((x) => x.type === "given"));
+    const moneyReturned = sum(data.money.filter((x) => x.type === "returned"));
+    const moneyOutstanding = Math.max(0, moneyGiven - moneyReturned);
 
     return {
       breakfast,
@@ -144,44 +142,24 @@ function App() {
       snacks,
       rent,
       other,
-      grand:
-        breakfast +
-        lunch +
-        dinner +
-        travel +
-        snacks +
-        rent +
-        other
+      grand: breakfast + lunch + dinner + travel + snacks + rent + other,
+      moneyGiven,
+      moneyReturned,
+      moneyOutstanding
     };
   }, [data]);
 
   const all = useMemo(
     () =>
       [
-        ...data.rent.map((x) => ({
-          ...x,
-          type: "rent",
-          label: "Room Rent"
-        })),
-
-        ...data.travel.map((x) => ({
-          ...x,
-          type: "travel",
-          label: x.description
-        })),
-
+        ...data.rent.map((x) => ({ ...x, type: "rent", label: "Room Rent" })),
+        ...data.travel.map((x) => ({ ...x, type: "travel", label: x.description })),
         ...data.food.map((x) => ({
           ...x,
           type: "food",
           label: `${x.meal} • ${x.food}`
         })),
-
-        ...data.snacks.map((x) => ({
-          ...x,
-          type: "snacks",
-          label: x.name
-        })),
-
+        ...data.snacks.map((x) => ({ ...x, type: "snacks", label: x.name })),
         ...data.other.map((x) => ({
           ...x,
           type: "other",
@@ -189,138 +167,232 @@ function App() {
         }))
       ].sort(
         (a, b) =>
-          b.date.localeCompare(a.date) ||
+          String(b.date).localeCompare(String(a.date)) ||
           Number(b.id || 0) - Number(a.id || 0)
       ),
     [data]
   );
 
-  const moneyPeople = useMemo(() => {
-    const people = {};
+  const people = useMemo(() => {
+    const map = new Map();
 
-    moneyData.transactions.forEach((transaction) => {
-      const name = transaction.person.trim();
-
+    data.money.forEach((transaction) => {
+      const name = transaction.person?.trim();
       if (!name) return;
 
-      if (!people[name]) {
-        people[name] = {
-          person: name,
-          given: 0,
-          returned: 0,
-          transactions: []
-        };
-      }
-
-      if (transaction.type === "given") {
-        people[name].given += Number(transaction.amount || 0);
-      }
-
-      if (transaction.type === "returned") {
-        people[name].returned += Number(transaction.amount || 0);
-      }
-
-      people[name].transactions.push(transaction);
+      const key = name.toLowerCase();
+      if (!map.has(key)) map.set(key, name);
     });
 
-    return Object.values(people)
-      .map((person) => ({
-        ...person,
-        remaining: Math.max(
-          0,
-          person.given - person.returned
-        )
-      }))
-      .sort((a, b) => b.remaining - a.remaining);
-  }, [moneyData]);
+    return [...map.values()].sort((a, b) => a.localeCompare(b));
+  }, [data.money]);
 
-  const moneyTotals = useMemo(() => {
-    const given = moneyData.transactions
-      .filter((x) => x.type === "given")
-      .reduce((sum, x) => sum + Number(x.amount || 0), 0);
-
-    const returned = moneyData.transactions
-      .filter((x) => x.type === "returned")
-      .reduce((sum, x) => sum + Number(x.amount || 0), 0);
-
-    return {
-      given,
-      returned,
-      remaining: Math.max(0, given - returned)
-    };
-  }, [moneyData]);
-
-  function showToast(message) {
+  function flash(message) {
     setToast(message);
-
-    setTimeout(() => {
-      setToast("");
-    }, 1800);
+    window.setTimeout(() => setToast(""), 1800);
   }
 
-  function saveExpense(type, item) {
-    setData((d) => {
-      const arr = [...d[type]];
+  function downloadBackup() {
+    const backup = {
+      app: "RoomLife Expense Tracker",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data
+    };
 
-      const i = arr.findIndex(
-        (x) => x.id === item.id
-      );
-
-      if (i >= 0) {
-        arr[i] = item;
-      } else {
-        arr.push({
-          ...item,
-          id: Date.now()
-        });
-      }
-
-      return {
-        ...d,
-        [type]: arr
-      };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: "application/json"
     });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
 
-    setEditing(null);
+    link.href = url;
+    link.download = `roomlife-expense-backup-${stamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
 
-    setToast(`${i18n(type)} saved`);
-
-    setTimeout(() => {
-      setToast("");
-    }, 1800);
+    flash("Backup downloaded");
   }
 
-  function remove(type, id) {
-    if (
-      !confirm(
-        "Are you sure you want to delete this expense?"
-      )
-    ) {
+  function openBackupPicker() {
+    fileInputRef.current?.click();
+  }
+
+  function handleBackupUpload(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".json")) {
+      flash("Please select a JSON backup file");
       return;
     }
 
-    setData((d) => ({
-      ...d,
-      [type]: d[type].filter(
-        (x) => x.id !== id
-      )
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      try {
+        const backup = JSON.parse(reader.result);
+        const imported = normalizeBackupData(backup?.data);
+        const types = ["travel", "food", "snacks", "rent", "other", "money"];
+        let addedCount = 0;
+
+        setData((current) => {
+          const next = { ...current };
+
+          types.forEach((type) => {
+            const existing = Array.isArray(current[type]) ? current[type] : [];
+            const fingerprints = new Set(existing.map(getItemFingerprint));
+            const additions = [];
+
+            imported[type].forEach((item) => {
+              const normalized = { ...item };
+
+              if (type === "money") {
+                normalized.person = String(normalized.person || "").trim();
+                normalized.type = normalized.type === "returned" ? "returned" : "given";
+              }
+
+              if (type === "other") {
+                normalized.category = normalized.category || "Miscellaneous";
+                normalized.name = normalized.name || "Other expense";
+              }
+
+              if (!normalized.date || Number(normalized.amount || 0) <= 0) return;
+              if (type === "money" && !normalized.person) return;
+
+              const fingerprint = getItemFingerprint(normalized);
+              if (fingerprints.has(fingerprint)) return;
+
+              fingerprints.add(fingerprint);
+              additions.push({
+                ...normalized,
+                id: createId(type)
+              });
+              addedCount += 1;
+            });
+
+            next[type] = [...existing, ...additions];
+          });
+
+          return next;
+        });
+
+        flash(
+          addedCount
+            ? `${addedCount} backup record${addedCount === 1 ? "" : "s"} restored`
+            : "No new records found in backup"
+        );
+      } catch {
+        flash("Invalid RoomLife backup file");
+      }
+    };
+
+    reader.onerror = () => flash("Could not read backup file");
+    reader.readAsText(file);
+  }
+
+  function saveExpense(type, item) {
+    setData((current) => {
+      const arr = [...current[type]];
+      const index = arr.findIndex((x) => x.id === item.id);
+
+      if (index >= 0) arr[index] = item;
+      else arr.push({ ...item, id: Date.now() });
+
+      return { ...current, [type]: arr };
+    });
+
+    setEditing(null);
+    flash(`${i18n(type)} saved`);
+  }
+
+  function saveMoneyTransaction(item) {
+    const amount = Number(item.amount || 0);
+    const person = item.person.trim();
+
+    if (!person || amount <= 0) return;
+
+    if (item.type === "returned") {
+      const currentBalance = getPersonBalance(
+        data.money,
+        person,
+        item.id
+      );
+
+      if (amount > currentBalance) {
+        flash(`Return cannot exceed ${money(currentBalance)}`);
+        return;
+      }
+    }
+
+    setData((current) => {
+      const arr = [...current.money];
+      const index = arr.findIndex((x) => x.id === item.id);
+
+      const transaction = {
+        ...item,
+        person,
+        amount
+      };
+
+      if (index >= 0) arr[index] = transaction;
+      else arr.push({ ...transaction, id: Date.now() });
+
+      return { ...current, money: arr };
+    });
+
+    setMoneyEditing(null);
+    flash(item.type === "given" ? "Money received saved" : "Money returned saved");
+  }
+
+  function remove(type, id) {
+    if (!window.confirm("Are you sure you want to delete this expense?")) return;
+
+    setData((current) => ({
+      ...current,
+      [type]: current[type].filter((x) => x.id !== id)
     }));
 
-    showToast("Expense deleted");
+    flash("Expense deleted");
+  }
+
+  function removeMoney(id) {
+    if (!window.confirm("Are you sure you want to delete this money transaction?")) {
+      return;
+    }
+
+    setData((current) => ({
+      ...current,
+      money: current.money.filter((x) => x.id !== id)
+    }));
+
+    flash("Money transaction deleted");
   }
 
   function clearAll() {
     if (
-      !confirm(
-        "Are you sure you want to delete all expense data? This action cannot be undone."
+      !window.confirm(
+        "Are you sure you want to delete all expense and money data? This action cannot be undone."
       )
     ) {
       return;
     }
 
-    setData(starter);
+    setData({
+      travel: [],
+      food: [],
+      snacks: [],
+      rent: [],
+      other: [],
+      money: []
+    });
 
-    showToast("All expense data deleted");
+    flash("All data deleted");
   }
 
   function i18n(type) {
@@ -328,129 +400,17 @@ function App() {
     if (type === "food") return "Food expense";
     if (type === "snacks") return "Snack expense";
     if (type === "other") return "Other expense";
-
     return "Travel expense";
   }
 
-  function saveMoneyTransaction(item) {
-    const amount = Number(item.amount || 0);
-
-    if (!item.person.trim() || !amount || amount <= 0) {
-      return;
-    }
-
-    if (item.type === "returned") {
-      const alreadyReturned = moneyData.transactions
-        .filter(
-          (x) =>
-            x.person.trim().toLowerCase() ===
-              item.person.trim().toLowerCase() &&
-            x.type === "returned" &&
-            x.id !== item.id
-        )
-        .reduce(
-          (sum, x) =>
-            sum + Number(x.amount || 0),
-          0
-        );
-
-      const totalGiven = moneyData.transactions
-        .filter(
-          (x) =>
-            x.person.trim().toLowerCase() ===
-              item.person.trim().toLowerCase() &&
-            x.type === "given"
-        )
-        .reduce(
-          (sum, x) =>
-            sum + Number(x.amount || 0),
-          0
-        );
-
-      const remaining =
-        totalGiven - alreadyReturned;
-
-      if (amount > remaining) {
-        showToast(
-          `Maximum returnable amount is ${money(
-            remaining
-          )}`
-        );
-        return;
-      }
-    }
-
-    setMoneyData((d) => {
-      const transactions = [...d.transactions];
-
-      const index = transactions.findIndex(
-        (x) => x.id === item.id
-      );
-
-      if (index >= 0) {
-        transactions[index] = item;
-      } else {
-        transactions.push({
-          ...item,
-          id: Date.now()
-        });
-      }
-
-      return {
-        ...d,
-        transactions
-      };
-    });
-
-    setMoneyEditing(null);
-
-    showToast(
-      item.type === "given"
-        ? "Money received saved"
-        : "Money returned saved"
-    );
-  }
-
-  function removeMoneyTransaction(id) {
-    if (
-      !confirm(
-        "Are you sure you want to delete this money transaction?"
-      )
-    ) {
-      return;
-    }
-
-    setMoneyData((d) => ({
-      ...d,
-      transactions: d.transactions.filter(
-        (x) => x.id !== id
-      )
-    }));
-
-    showToast("Money transaction deleted");
-  }
-
-  function clearMoneyData() {
-    if (
-      !confirm(
-        "Are you sure you want to delete all money given/returned data? This action cannot be undone."
-      )
-    ) {
-      return;
-    }
-
-    setMoneyData(moneyStarter);
-
-    showToast("Money tracking data deleted");
+  function navigate(nextPage) {
+    setPage(nextPage);
+    setMenu(false);
   }
 
   return (
     <div className="app">
-      <aside
-        className={`sidebar ${
-          menu ? "open" : ""
-        }`}
-      >
+      <aside className={`sidebar ${menu ? "open" : ""}`}>
         <div className="brand">
           <div className="brand-icon">
             <WalletCards size={21} />
@@ -464,6 +424,7 @@ function App() {
           <button
             className="icon-btn close-menu"
             onClick={() => setMenu(false)}
+            aria-label="Close menu"
           >
             <X />
           </button>
@@ -472,10 +433,7 @@ function App() {
         <nav>
           <Nav
             active={page === "dashboard"}
-            onClick={() => {
-              setPage("dashboard");
-              setMenu(false);
-            }}
+            onClick={() => navigate("dashboard")}
             icon={<LayoutDashboard />}
           >
             Dashboard
@@ -483,10 +441,7 @@ function App() {
 
           <Nav
             active={page === "expenses"}
-            onClick={() => {
-              setPage("expenses");
-              setMenu(false);
-            }}
+            onClick={() => navigate("expenses")}
             icon={<ReceiptText />}
           >
             All Expenses
@@ -494,10 +449,7 @@ function App() {
 
           <Nav
             active={page === "food"}
-            onClick={() => {
-              setPage("food");
-              setMenu(false);
-            }}
+            onClick={() => navigate("food")}
             icon={<Utensils />}
           >
             Food Breakdown
@@ -505,13 +457,10 @@ function App() {
 
           <Nav
             active={page === "money"}
-            onClick={() => {
-              setPage("money");
-              setMenu(false);
-            }}
-            icon={<HandCoins />}
+            onClick={() => navigate("money")}
+            icon={<Users />}
           >
-            Money Tracking
+            Money Given & Received
           </Nav>
         </nav>
 
@@ -521,57 +470,47 @@ function App() {
             <span>Stored on this device</span>
           </div>
 
-          <button
-            className="danger-link"
-            onClick={clearAll}
-          >
+          <button className="danger-link" onClick={clearAll}>
             <Trash2 size={16} />
-            Delete all expense data
-          </button>
-
-          <button
-            className="danger-link money-danger"
-            onClick={clearMoneyData}
-          >
-            <Trash2 size={16} />
-            Delete money data
+            Delete all data
           </button>
         </div>
       </aside>
 
-      {menu && (
-        <div
-          className="backdrop"
-          onClick={() => setMenu(false)}
-        />
-      )}
+      {menu && <div className="backdrop" onClick={() => setMenu(false)} />}
 
       <main>
         <header>
           <button
             className="icon-btn mobile-menu"
             onClick={() => setMenu(true)}
+            aria-label="Open menu"
           >
             <Menu />
           </button>
 
           <div>
-            <div className="eyebrow">
-              PERSONAL FINANCE
-            </div>
-
+            <div className="eyebrow">PERSONAL FINANCE</div>
             <h1>
               {page === "dashboard"
                 ? "Good to see you"
                 : page === "food"
-                ? "Food breakdown"
-                : page === "money"
-                ? "Money tracking"
-                : "All expenses"}
+                  ? "Food breakdown"
+                  : page === "money"
+                    ? "Money tracking"
+                    : "All expenses"}
             </h1>
           </div>
 
-          {page !== "money" ? (
+          {page === "money" ? (
+            <button
+              className="add-main"
+              onClick={() => setMoneyEditing({ type: "given", item: null })}
+            >
+              <Plus size={18} />
+              <span>Add money</span>
+            </button>
+          ) : (
             <button
               className="add-main"
               onClick={() =>
@@ -582,33 +521,48 @@ function App() {
               }
             >
               <Plus size={18} />
-              Add expense
-            </button>
-          ) : (
-            <button
-              className="add-main"
-              onClick={() =>
-                setMoneyEditing({
-                  type: "given",
-                  item: null
-                })
-              }
-            >
-              <Plus size={18} />
-              Add money
+              <span>Add expense</span>
             </button>
           )}
         </header>
+
+        <div className="backup-bar">
+          <div className="backup-copy">
+            <div className="backup-icon"><WalletCards size={17} /></div>
+            <div>
+              <b>Data backup</b>
+              <span>Transfer your expenses to another device.</span>
+            </div>
+          </div>
+          <div className="backup-actions">
+            <button className="backup-btn" onClick={downloadBackup} type="button">
+              <Download size={16} />
+              <span>Download</span>
+            </button>
+            <button className="backup-btn primary" onClick={openBackupPicker} type="button">
+              <Upload size={16} />
+              <span>Upload</span>
+            </button>
+          </div>
+          <input
+            ref={fileInputRef}
+            className="backup-file-input"
+            type="file"
+            accept="application/json,.json"
+            onChange={handleBackupUpload}
+            aria-label="Upload RoomLife backup"
+          />
+        </div>
 
         {page === "dashboard" && (
           <Dashboard
             totals={totals}
             all={all}
             onAdd={setEditing}
+            onMoneyAdd={() =>
+              setMoneyEditing({ type: "given", item: null })
+            }
             onView={() => setPage("expenses")}
-            moneyTotals={moneyTotals}
-            moneyPeople={moneyPeople}
-            onMoneyAdd={setMoneyEditing}
             onMoneyView={() => setPage("money")}
           />
         )}
@@ -632,19 +586,22 @@ function App() {
         )}
 
         {page === "money" && (
-          <MoneyTracking
-            transactions={moneyData.transactions}
-            people={moneyPeople}
-            totals={moneyTotals}
-            onAdd={setMoneyEditing}
-            onEdit={setMoneyEditing}
-            onDelete={removeMoneyTransaction}
+          <MoneyPage
+            transactions={data.money}
+            people={people}
+            totals={totals}
+            onAdd={(options = {}) =>
+              setMoneyEditing({
+                type: "given",
+                item: options.person ? { person: options.person } : null
+              })
+            }
+            onEdit={(item) => setMoneyEditing({ type: item.type, item })}
+            onDelete={removeMoney}
           />
         )}
 
-        <footer>
-          RoomLife • Your expenses stay on this device
-        </footer>
+        <footer>RoomLife • Your data stays on this device</footer>
       </main>
 
       {editing && (
@@ -660,7 +617,7 @@ function App() {
         <MoneyModal
           initial={moneyEditing.item}
           type={moneyEditing.type}
-          transactions={moneyData.transactions}
+          transactions={data.money}
           onClose={() => setMoneyEditing(null)}
           onSave={saveMoneyTransaction}
         />
@@ -676,19 +633,48 @@ function App() {
   );
 }
 
-function Nav({
-  active,
-  onClick,
-  icon,
-  children
-}) {
+function getPersonBalance(transactions, person, excludeId = null) {
+  const normalized = person.trim().toLowerCase();
+
+  return transactions.reduce((balance, transaction) => {
+    if (transaction.id === excludeId) return balance;
+    if (transaction.person?.trim().toLowerCase() !== normalized) return balance;
+
+    return balance +
+      (transaction.type === "given"
+        ? Number(transaction.amount || 0)
+        : -Number(transaction.amount || 0));
+  }, 0);
+}
+
+function getPersonStats(transactions, person) {
+  const normalized = person.trim().toLowerCase();
+  const list = transactions.filter(
+    (x) => x.person?.trim().toLowerCase() === normalized
+  );
+
+  const given = list
+    .filter((x) => x.type === "given")
+    .reduce((sum, x) => sum + Number(x.amount || 0), 0);
+  const returned = list
+    .filter((x) => x.type === "returned")
+    .reduce((sum, x) => sum + Number(x.amount || 0), 0);
+
+  return {
+    given,
+    returned,
+    balance: Math.max(0, given - returned),
+    transactions: [...list].sort(
+      (a, b) =>
+        String(a.date).localeCompare(String(b.date)) ||
+        Number(a.id || 0) - Number(b.id || 0)
+    )
+  };
+}
+
+function Nav({ active, onClick, icon, children }) {
   return (
-    <button
-      className={`nav-item ${
-        active ? "active" : ""
-      }`}
-      onClick={onClick}
-    >
+    <button className={`nav-item ${active ? "active" : ""}`} onClick={onClick}>
       {icon}
       <span>{children}</span>
       <ChevronRight className="nav-arrow" />
@@ -700,28 +686,17 @@ function Dashboard({
   totals,
   all,
   onAdd,
-  onView,
-  moneyTotals,
-  moneyPeople,
   onMoneyAdd,
+  onView,
   onMoneyView
 }) {
   return (
     <section className="content">
       <div className="hero-card">
         <div>
-          <span className="hero-label">
-            TOTAL SPENT
-          </span>
-
-          <div className="hero-total">
-            {money(totals.grand)}
-          </div>
-
-          <p>
-            Room rent, travel, food, snacks & other
-            expenses
-          </p>
+          <span className="hero-label">TOTAL SPENT</span>
+          <div className="hero-total">{money(totals.grand)}</div>
+          <p>Room rent, travel, food, snacks & other expenses</p>
         </div>
 
         <div className="hero-art">
@@ -738,34 +713,10 @@ function Dashboard({
       </div>
 
       <div className="stats-grid">
-        <Stat
-          icon={<BedDouble />}
-          title="Room Rent"
-          value={totals.rent}
-          cls="rent"
-        />
-
-        <Stat
-          icon={<TrainFront />}
-          title="Travel"
-          value={totals.travel}
-          cls="travel"
-        />
-
-        <Stat
-          icon={<Utensils />}
-          title="Food"
-          value={totals.food}
-          cls="food"
-        />
-
-        <Stat
-          icon={<Coffee />}
-          title="Snacks"
-          value={totals.snacks}
-          cls="snacks"
-        />
-
+        <Stat icon={<BedDouble />} title="Room Rent" value={totals.rent} cls="rent" />
+        <Stat icon={<TrainFront />} title="Travel" value={totals.travel} cls="travel" />
+        <Stat icon={<Utensils />} title="Food" value={totals.food} cls="food" />
+        <Stat icon={<Coffee />} title="Snacks" value={totals.snacks} cls="snacks" />
         <Stat
           icon={<CircleDollarSign />}
           title="Other"
@@ -781,34 +732,17 @@ function Dashboard({
               <h2>Food breakdown</h2>
               <p>Meal-wise spending</p>
             </div>
-
             <button
               className="text-btn"
-              onClick={() =>
-                onAdd({
-                  type: "food",
-                  item: null
-                })
-              }
+              onClick={() => onAdd({ type: "food", item: null })}
             >
               + Add food
             </button>
           </div>
 
-          <MealRow
-            label="Breakfast"
-            value={totals.breakfast}
-          />
-
-          <MealRow
-            label="Lunch"
-            value={totals.lunch}
-          />
-
-          <MealRow
-            label="Dinner"
-            value={totals.dinner}
-          />
+          <MealRow label="Breakfast" value={totals.breakfast} />
+          <MealRow label="Lunch" value={totals.lunch} />
+          <MealRow label="Dinner" value={totals.dinner} />
 
           <div className="food-total">
             <span>Total food</span>
@@ -827,138 +761,63 @@ function Dashboard({
           <Quick
             icon={<TrainFront />}
             label="Travel"
-            onClick={() =>
-              onAdd({
-                type: "travel",
-                item: null
-              })
-            }
+            onClick={() => onAdd({ type: "travel", item: null })}
           />
-
           <Quick
             icon={<Utensils />}
             label="Food"
-            onClick={() =>
-              onAdd({
-                type: "food",
-                item: null
-              })
-            }
+            onClick={() => onAdd({ type: "food", item: null })}
           />
-
           <Quick
             icon={<Coffee />}
             label="Snacks"
-            onClick={() =>
-              onAdd({
-                type: "snacks",
-                item: null
-              })
-            }
+            onClick={() => onAdd({ type: "snacks", item: null })}
           />
-
           <Quick
             icon={<BedDouble />}
             label="Room rent"
-            onClick={() =>
-              onAdd({
-                type: "rent",
-                item: null
-              })
-            }
+            onClick={() => onAdd({ type: "rent", item: null })}
           />
-
           <Quick
             icon={<CircleDollarSign />}
             label="Other expenses"
-            onClick={() =>
-              onAdd({
-                type: "other",
-                item: null
-              })
-            }
+            onClick={() => onAdd({ type: "other", item: null })}
           />
         </div>
       </div>
 
-      <div className="money-dashboard-card">
-        <div className="money-dashboard-head">
-          <div className="money-dashboard-icon">
-            <HandCoins size={21} />
-          </div>
-
+      <div className="money-summary-panel">
+        <div className="money-summary-copy">
+          <div className="money-summary-icon"><Users size={20} /></div>
           <div>
-            <h2>Money given & returned</h2>
-            <p>
-              Track money received from people and
-              returned amounts.
-            </p>
+            <h2>Money given & received</h2>
+            <p>Track money people give you and what you return.</p>
           </div>
-
-          <button
-            className="text-btn"
-            onClick={onMoneyView}
-          >
-            View
-          </button>
         </div>
 
-        <div className="money-mini-grid">
+        <div className="money-summary-values">
           <div>
             <span>Total given</span>
-            <strong>{money(moneyTotals.given)}</strong>
+            <strong>{money(totals.moneyGiven)}</strong>
           </div>
-
           <div>
             <span>Total returned</span>
-            <strong>{money(moneyTotals.returned)}</strong>
+            <strong>{money(totals.moneyReturned)}</strong>
           </div>
-
-          <div>
+          <div className="outstanding-value">
             <span>Outstanding</span>
-            <strong>
-              {money(moneyTotals.remaining)}
-            </strong>
+            <strong>{money(totals.moneyOutstanding)}</strong>
           </div>
         </div>
 
-        {moneyPeople.length > 0 && (
-          <div className="money-mini-people">
-            {moneyPeople.slice(0, 3).map((person) => (
-              <div
-                className="money-mini-person"
-                key={person.person}
-              >
-                <div className="person-avatar">
-                  {person.person
-                    .charAt(0)
-                    .toUpperCase()}
-                </div>
-
-                <div>
-                  <b>{person.person}</b>
-                  <span>
-                    Outstanding{" "}
-                    {money(person.remaining)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <button
-          className="money-add-button"
-          onClick={() =>
-            onMoneyAdd({
-              type: "given",
-              item: null
-            })
-          }
-        >
-          <Plus size={17} />
-          Record money
-        </button>
+        <div className="money-summary-actions">
+          <button className="secondary-btn" onClick={onMoneyView}>
+            View history
+          </button>
+          <button className="dark-btn" onClick={onMoneyAdd}>
+            <Plus size={16} /> Add money
+          </button>
+        </div>
       </div>
 
       <div className="panel recent">
@@ -967,24 +826,13 @@ function Dashboard({
             <h2>Recent expenses</h2>
             <p>Your latest activity</p>
           </div>
-
-          <button
-            className="text-btn"
-            onClick={onView}
-          >
-            View all
-          </button>
+          <button className="text-btn" onClick={onView}>View all</button>
         </div>
 
         {all.length ? (
-          all
-            .slice(0, 5)
-            .map((x) => (
-              <ExpenseRow
-                key={`${x.type}-${x.id}`}
-                x={x}
-              />
-            ))
+          all.slice(0, 5).map((x) => (
+            <ExpenseRow key={`${x.type}-${x.id}`} x={x} />
+          ))
         ) : (
           <Empty />
         )}
@@ -993,18 +841,10 @@ function Dashboard({
   );
 }
 
-function Stat({
-  icon,
-  title,
-  value,
-  cls
-}) {
+function Stat({ icon, title, value, cls }) {
   return (
     <div className="stat-card">
-      <div className={`stat-icon ${cls}`}>
-        {icon}
-      </div>
-
+      <div className={`stat-icon ${cls}`}>{icon}</div>
       <div>
         <span>{title}</span>
         <strong>{money(value)}</strong>
@@ -1013,49 +853,21 @@ function Stat({
   );
 }
 
-function MealRow({
-  label,
-  value
-}) {
+function MealRow({ label, value }) {
   return (
     <div className="meal-row">
       <span>{label}</span>
-
       <div className="bar">
-        <i
-          style={{
-            width: `${
-              value
-                ? Math.max(
-                    8,
-                    Math.min(
-                      100,
-                      (value /
-                        Math.max(value, 1)) *
-                        100
-                    )
-                  )
-                : 0
-            }%`
-          }}
-        />
+        <i style={{ width: `${value ? Math.max(8, 100) : 0}%` }} />
       </div>
-
       <b>{money(value)}</b>
     </div>
   );
 }
 
-function Quick({
-  icon,
-  label,
-  onClick
-}) {
+function Quick({ icon, label, onClick }) {
   return (
-    <button
-      className="quick-row"
-      onClick={onClick}
-    >
+    <button className="quick-row" onClick={onClick}>
       {icon}
       <span>{label}</span>
       <Plus size={17} />
@@ -1063,30 +875,19 @@ function Quick({
   );
 }
 
-function Expenses({
-  all,
-  onEdit,
-  onDelete
-}) {
+function Expenses({ all, onEdit, onDelete }) {
   return (
     <section className="content">
       <div className="filter-note">
         <CalendarDays size={18} />
-
-        <span>
-          Expenses are automatically saved with
-          their date.
-        </span>
+        <span>Expenses are automatically saved with their date.</span>
       </div>
 
       <div className="panel">
         <div className="panel-head">
           <div>
             <h2>Expense history</h2>
-            <p>
-              {all.length} record
-              {all.length === 1 ? "" : "s"}
-            </p>
+            <p>{all.length} record{all.length === 1 ? "" : "s"}</p>
           </div>
         </div>
 
@@ -1108,67 +909,25 @@ function Expenses({
   );
 }
 
-function Food({
-  data,
-  totals,
-  onAdd,
-  onEdit,
-  onDelete
-}) {
+function Food({ data, totals, onAdd, onEdit, onDelete }) {
   return (
     <section className="content">
       <div className="food-banner">
         <Utensils size={22} />
-
         <div>
           <b>Food spending</b>
-          <span>
-            Track every meal and understand your
-            daily food habits.
-          </span>
+          <span>Track every meal and understand your daily food habits.</span>
         </div>
-
-        <button
-          onClick={() =>
-            onAdd({
-              type: "food",
-              item: null
-            })
-          }
-        >
-          <Plus size={17} />
-          Add food
+        <button onClick={() => onAdd({ type: "food", item: null })}>
+          <Plus size={17} /> Add food
         </button>
       </div>
 
       <div className="stats-grid food-stats">
-        <Stat
-          icon={<span>☀</span>}
-          title="Breakfast"
-          value={totals.breakfast}
-          cls="morning"
-        />
-
-        <Stat
-          icon={<span>◐</span>}
-          title="Lunch"
-          value={totals.lunch}
-          cls="afternoon"
-        />
-
-        <Stat
-          icon={<span>☾</span>}
-          title="Dinner"
-          value={totals.dinner}
-          cls="evening"
-        />
-
-        <Stat
-          icon={<Utensils />}
-          title="Total Food"
-          value={totals.food}
-          cls="food"
-        />
+        <Stat icon={<span>☀</span>} title="Breakfast" value={totals.breakfast} cls="morning" />
+        <Stat icon={<span>◐</span>} title="Lunch" value={totals.lunch} cls="afternoon" />
+        <Stat icon={<span>☾</span>} title="Dinner" value={totals.dinner} cls="evening" />
+        <Stat icon={<Utensils />} title="Total Food" value={totals.food} cls="food" />
       </div>
 
       <div className="panel">
@@ -1181,17 +940,11 @@ function Food({
 
         {data.length ? (
           [...data]
-            .sort((a, b) =>
-              b.date.localeCompare(a.date)
-            )
+            .sort((a, b) => b.date.localeCompare(a.date))
             .map((x) => (
               <ExpenseRow
                 key={x.id}
-                x={{
-                  ...x,
-                  type: "food",
-                  label: `${x.meal} • ${x.food}`
-                }}
+                x={{ ...x, type: "food", label: `${x.meal} • ${x.food}` }}
                 actions
                 onEdit={onEdit}
                 onDelete={onDelete}
@@ -1205,73 +958,38 @@ function Food({
   );
 }
 
-function ExpenseRow({
-  x,
-  actions,
-  onEdit,
-  onDelete
-}) {
+function ExpenseRow({ x, actions, onEdit, onDelete }) {
   const icon =
-    x.type === "travel" ? (
-      <TrainFront />
-    ) : x.type === "food" ? (
-      <Utensils />
-    ) : x.type === "snacks" ? (
-      <Coffee />
-    ) : x.type === "other" ? (
-      <CircleDollarSign />
-    ) : (
-      <BedDouble />
-    );
+    x.type === "travel" ? <TrainFront /> :
+    x.type === "food" ? <Utensils /> :
+    x.type === "snacks" ? <Coffee /> :
+    x.type === "other" ? <CircleDollarSign /> :
+    <BedDouble />;
 
   return (
     <div className="expense-row">
-      <div className={`row-icon ${x.type}`}>
-        {icon}
-      </div>
+      <div className={`row-icon ${x.type}`}>{icon}</div>
 
       <div className="expense-info">
-        <b>
-          {x.label ||
-            x.description ||
-            x.name}
-        </b>
-
-        <span>
-          {x.date}
-
-          {x.type === "food" &&
-            ` • ${x.food}`}
-
-          {x.type === "other" &&
-            x.category &&
-            ` • ${x.category}`}
-        </span>
+        <b>{x.label || x.description || x.name}</b>
+        <span>{x.date}{x.type === "food" ? ` • ${x.food}` : ""}</span>
       </div>
 
-      <strong className="row-amount">
-        {money(x.amount)}
-      </strong>
+      <strong className="row-amount">{money(x.amount)}</strong>
 
       {actions && (
         <div className="row-actions">
           <button
             title="Edit"
-            onClick={() =>
-              onEdit({
-                type: x.type,
-                item: x
-              })
-            }
+            aria-label="Edit expense"
+            onClick={() => onEdit({ type: x.type, item: x })}
           >
             <Edit3 size={16} />
           </button>
-
           <button
             title="Delete"
-            onClick={() =>
-              onDelete(x.type, x.id)
-            }
+            aria-label="Delete expense"
+            onClick={() => onDelete(x.type, x.id)}
           >
             <Trash2 size={16} />
           </button>
@@ -1285,72 +1003,264 @@ function Empty() {
   return (
     <div className="empty">
       <ReceiptText size={28} />
-
       <b>No expenses yet</b>
-
-      <span>
-        Add your first expense to see it here.
-      </span>
+      <span>Add your first expense to see it here.</span>
     </div>
   );
 }
 
-function ExpenseModal({
-  initial,
-  type,
-  onClose,
-  onSave
+function MoneyPage({ transactions, people, totals, onAdd, onEdit, onDelete }) {
+  return (
+    <section className="content">
+      <div className="money-hero">
+        <div className="money-hero-icon"><Users size={23} /></div>
+        <div className="money-hero-copy">
+          <span className="hero-label">MONEY BALANCE</span>
+          <strong>{money(totals.moneyOutstanding)}</strong>
+          <p>Amount currently outstanding from money you've received.</p>
+        </div>
+        <button className="money-add-btn" onClick={onAdd}>
+          <Plus size={17} /> Add transaction
+        </button>
+      </div>
+
+      <div className="money-stats-grid">
+        <MoneyStat
+          icon={<ArrowDownLeft />}
+          title="Total Given"
+          value={totals.moneyGiven}
+          cls="given"
+        />
+        <MoneyStat
+          icon={<ArrowUpRight />}
+          title="Total Returned"
+          value={totals.moneyReturned}
+          cls="returned"
+        />
+        <MoneyStat
+          icon={<CircleDollarSign />}
+          title="Outstanding"
+          value={totals.moneyOutstanding}
+          cls="balance"
+        />
+        <MoneyStat
+          icon={<Users />}
+          title="People"
+          value={people.length}
+          cls="people"
+          raw
+        />
+      </div>
+
+      <div className="money-section-heading">
+        <div>
+          <h2>People & balances</h2>
+          <p>Each person has a separate transaction history.</p>
+        </div>
+      </div>
+
+      {people.length ? (
+        <div className="people-grid">
+          {people.map((person) => (
+            <PersonCard
+              key={person}
+              person={person}
+              transactions={transactions}
+              onAdd={onAdd}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="panel money-empty-panel">
+          <div className="empty">
+            <Users size={30} />
+            <b>No money records yet</b>
+            <span>Add a transaction to start tracking money given and returned.</span>
+            <button className="dark-btn empty-add" onClick={onAdd}>
+              <Plus size={16} /> Add first transaction
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="panel money-history-panel">
+        <div className="panel-head">
+          <div>
+            <h2>All money transactions</h2>
+            <p>{transactions.length} record{transactions.length === 1 ? "" : "s"}</p>
+          </div>
+          <History size={20} className="history-icon" />
+        </div>
+
+        {transactions.length ? (
+          [...transactions]
+            .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)
+            .map((transaction) => (
+              <MoneyTransactionRow
+                key={transaction.id}
+                transaction={transaction}
+                transactions={transactions}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            ))
+        ) : (
+          <Empty />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MoneyStat({ icon, title, value, cls, raw = false }) {
+  return (
+    <div className="money-stat-card">
+      <div className={`money-stat-icon ${cls}`}>{icon}</div>
+      <div>
+        <span>{title}</span>
+        <strong>{raw ? value : money(value)}</strong>
+      </div>
+    </div>
+  );
+}
+
+function PersonCard({ person, transactions, onAdd, onEdit, onDelete }) {
+  const stats = getPersonStats(transactions, person);
+
+  return (
+    <div className="person-card">
+      <div className="person-card-head">
+        <div className="person-avatar">{person.charAt(0).toUpperCase()}</div>
+        <div className="person-name-wrap">
+          <b>{person}</b>
+          <span>{stats.transactions.length} transaction{stats.transactions.length === 1 ? "" : "s"}</span>
+        </div>
+        <span className={`balance-pill ${stats.balance === 0 ? "zero" : ""}`}>
+          {stats.balance === 0 ? "Settled" : `${money(stats.balance)} due`}
+        </span>
+      </div>
+
+      <div className="person-money-grid">
+        <div>
+          <span>Given</span>
+          <strong>{money(stats.given)}</strong>
+        </div>
+        <div>
+          <span>Returned</span>
+          <strong>{money(stats.returned)}</strong>
+        </div>
+        <div>
+          <span>Remaining</span>
+          <strong>{money(stats.balance)}</strong>
+        </div>
+      </div>
+
+      <div className="person-history-title">
+        <History size={14} /> Transaction history
+      </div>
+
+      <div className="person-history-list">
+        {stats.transactions.map((transaction) => (
+          <MoneyTransactionRow
+            key={transaction.id}
+            transaction={transaction}
+            transactions={transactions}
+            compact
+            onEdit={onEdit}
+            onDelete={onDelete}
+          />
+        ))}
+      </div>
+
+      <button
+        className="person-add-return"
+        onClick={() => onAdd({ person })}
+      >
+        <Plus size={15} /> Add transaction for {person}
+      </button>
+    </div>
+  );
+}
+
+function MoneyTransactionRow({
+  transaction,
+  transactions,
+  compact = false,
+  onEdit,
+  onDelete
 }) {
+  const balance = getPersonBalance(transactions, transaction.person);
+  const typeGiven = transaction.type === "given";
+  const historyBalance = getPersonBalance(
+    transactions
+      .filter((x) =>
+        x.person?.trim().toLowerCase() === transaction.person?.trim().toLowerCase()
+      )
+      .filter((x) =>
+        String(x.date).localeCompare(String(transaction.date)) < 0 ||
+        (x.date === transaction.date && Number(x.id || 0) <= Number(transaction.id || 0))
+      ),
+    transaction.person
+  );
+
+  return (
+    <div className={`money-transaction-row ${compact ? "compact" : ""}`}>
+      <div className={`money-type-icon ${typeGiven ? "given" : "returned"}`}>
+        {typeGiven ? <ArrowDownLeft /> : <ArrowUpRight />}
+      </div>
+
+      <div className="money-transaction-info">
+        <b>{transaction.person}</b>
+        <span>{transaction.date} • {typeGiven ? "Given" : "Returned"}</span>
+      </div>
+
+      <div className="money-transaction-amount">
+        <strong>{typeGiven ? "+" : "−"}{money(transaction.amount)}</strong>
+        <span>Balance {money(Math.max(0, historyBalance))}</span>
+      </div>
+
+      {!compact && <span className="current-balance-label">Current {money(balance)}</span>}
+
+      <div className="row-actions">
+        <button
+          title="Edit"
+          aria-label="Edit money transaction"
+          onClick={() => onEdit(transaction)}
+        >
+          <Edit3 size={16} />
+        </button>
+        <button
+          title="Delete"
+          aria-label="Delete money transaction"
+          onClick={() => onDelete(transaction.id)}
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ExpenseModal({ initial, type, onClose, onSave }) {
   const [kind, setKind] = useState(type);
-
-  const [date, setDate] = useState(
-    initial?.date || today()
+  const [date, setDate] = useState(initial?.date || today());
+  const [amount, setAmount] = useState(initial?.amount ?? "");
+  const [description, setDescription] = useState(initial?.description || "");
+  const [meal, setMeal] = useState(initial?.meal || "Breakfast");
+  const [food, setFood] = useState(initial?.food || "");
+  const [name, setName] = useState(initial?.name || "");
+  const [month, setMonth] = useState(initial?.month || "");
+  const [rentDesc, setRentDesc] = useState(initial?.description || "");
+  const [otherCategory, setOtherCategory] = useState(
+    initial?.category || "Miscellaneous"
   );
 
-  const [amount, setAmount] = useState(
-    initial?.amount ?? ""
-  );
+  function submit(event) {
+    event.preventDefault();
 
-  const [description, setDescription] =
-    useState(
-      initial?.description || ""
-    );
-
-  const [meal, setMeal] = useState(
-    initial?.meal || "Breakfast"
-  );
-
-  const [food, setFood] = useState(
-    initial?.food || ""
-  );
-
-  const [name, setName] = useState(
-    initial?.name || ""
-  );
-
-  const [month, setMonth] = useState(
-    initial?.month || ""
-  );
-
-  const [rentDesc, setRentDesc] =
-    useState(
-      initial?.description || ""
-    );
-
-  const [otherCategory, setOtherCategory] =
-    useState(
-      initial?.category || "Miscellaneous"
-    );
-
-  function submit(e) {
-    e.preventDefault();
-
-    if (
-      !amount ||
-      Number(amount) <= 0
-    ) {
-      return;
-    }
+    if (!amount || Number(amount) <= 0) return;
 
     const common = {
       id: initial?.id,
@@ -1361,8 +1271,7 @@ function ExpenseModal({
     if (kind === "travel") {
       onSave("travel", {
         ...common,
-        description:
-          description.trim() || "Travel"
+        description: description.trim() || "Travel"
       });
     }
 
@@ -1370,28 +1279,22 @@ function ExpenseModal({
       onSave("food", {
         ...common,
         meal,
-        food:
-          food.trim() || "Food"
+        food: food.trim() || "Food"
       });
     }
 
     if (kind === "snacks") {
       onSave("snacks", {
         ...common,
-        name:
-          name.trim() || "Snack"
+        name: name.trim() || "Snack"
       });
     }
 
     if (kind === "rent") {
       onSave("rent", {
         ...common,
-        month:
-          month ||
-          date.slice(0, 7),
-        description:
-          rentDesc.trim() ||
-          "Room rent"
+        month: month || date.slice(0, 7),
+        description: rentDesc.trim() || "Room rent"
       });
     }
 
@@ -1399,9 +1302,7 @@ function ExpenseModal({
       onSave("other", {
         ...common,
         category: otherCategory,
-        name:
-          name.trim() ||
-          "Other expense"
+        name: name.trim() || "Other expense"
       });
     }
   }
@@ -1411,85 +1312,41 @@ function ExpenseModal({
       <div className="modal">
         <div className="modal-head">
           <div>
-            <span className="eyebrow">
-              {initial
-                ? "EDIT EXPENSE"
-                : "NEW EXPENSE"}
-            </span>
-
-            <h2>
-              {initial
-                ? "Update expense"
-                : "Add expense"}
-            </h2>
+            <span className="eyebrow">{initial ? "EDIT EXPENSE" : "NEW EXPENSE"}</span>
+            <h2>{initial ? "Update expense" : "Add expense"}</h2>
           </div>
-
-          <button
-            className="icon-btn"
-            onClick={onClose}
-          >
+          <button className="icon-btn" onClick={onClose} aria-label="Close">
             <X />
           </button>
         </div>
 
         <div className="type-tabs">
           {[
-            [
-              "travel",
-              "Travel",
-              <TrainFront />
-            ],
-            [
-              "food",
-              "Food",
-              <Utensils />
-            ],
-            [
-              "snacks",
-              "Snacks",
-              <Coffee />
-            ],
-            [
-              "rent",
-              "Rent",
-              <BedDouble />
-            ],
-            [
-              "other",
-              "Other",
-              <CircleDollarSign />
-            ]
-          ].map(
-            ([k, l, i]) => (
-              <button
-                type="button"
-                key={k}
-                className={
-                  kind === k
-                    ? "selected"
-                    : ""
-                }
-                onClick={() =>
-                  setKind(k)
-                }
-              >
-                {i}
-                <span>{l}</span>
-              </button>
-            )
-          )}
+            ["travel", "Travel", <TrainFront key="travel" />],
+            ["food", "Food", <Utensils key="food" />],
+            ["snacks", "Snacks", <Coffee key="snacks" />],
+            ["rent", "Rent", <BedDouble key="rent" />],
+            ["other", "Other", <CircleDollarSign key="other" />]
+          ].map(([key, label, icon]) => (
+            <button
+              type="button"
+              key={key}
+              className={kind === key ? "selected" : ""}
+              onClick={() => setKind(key)}
+            >
+              {icon}
+              <span>{label}</span>
+            </button>
+          ))}
         </div>
 
         <form onSubmit={submit}>
           <label>
             Date
-
             <input
               type="date"
               value={date}
-              onChange={(e) =>
-                setDate(e.target.value)
-              }
+              onChange={(event) => setDate(event.target.value)}
               required
             />
           </label>
@@ -1497,15 +1354,10 @@ function ExpenseModal({
           {kind === "travel" && (
             <label>
               Travel description
-
               <input
                 placeholder="e.g. Bus, Train, Auto, Cab"
                 value={description}
-                onChange={(e) =>
-                  setDescription(
-                    e.target.value
-                  )
-                }
+                onChange={(event) => setDescription(event.target.value)}
               />
             </label>
           )}
@@ -1514,32 +1366,18 @@ function ExpenseModal({
             <>
               <label>
                 Meal type
-
-                <select
-                  value={meal}
-                  onChange={(e) =>
-                    setMeal(
-                      e.target.value
-                    )
-                  }
-                >
+                <select value={meal} onChange={(event) => setMeal(event.target.value)}>
                   <option>Breakfast</option>
                   <option>Lunch</option>
                   <option>Dinner</option>
                 </select>
               </label>
-
               <label>
                 What did you eat?
-
                 <input
                   placeholder="e.g. Idly, Meals, Dosa"
                   value={food}
-                  onChange={(e) =>
-                    setFood(
-                      e.target.value
-                    )
-                  }
+                  onChange={(event) => setFood(event.target.value)}
                 />
               </label>
             </>
@@ -1548,15 +1386,10 @@ function ExpenseModal({
           {kind === "snacks" && (
             <label>
               Snack name
-
               <input
                 placeholder="e.g. Tea, Biscuit, Juice"
                 value={name}
-                onChange={(e) =>
-                  setName(
-                    e.target.value
-                  )
-                }
+                onChange={(event) => setName(event.target.value)}
               />
             </label>
           )}
@@ -1565,32 +1398,18 @@ function ExpenseModal({
             <>
               <label>
                 Month
-
                 <input
                   type="month"
                   value={month}
-                  onChange={(e) =>
-                    setMonth(
-                      e.target.value
-                    )
-                  }
+                  onChange={(event) => setMonth(event.target.value)}
                 />
               </label>
-
               <label>
-                Description{" "}
-                <span className="optional">
-                  (optional)
-                </span>
-
+                Description <span className="optional">(optional)</span>
                 <input
                   placeholder="e.g. September room rent"
                   value={rentDesc}
-                  onChange={(e) =>
-                    setRentDesc(
-                      e.target.value
-                    )
-                  }
+                  onChange={(event) => setRentDesc(event.target.value)}
                 />
               </label>
             </>
@@ -1600,47 +1419,24 @@ function ExpenseModal({
             <>
               <label>
                 Expense category
-
                 <select
                   value={otherCategory}
-                  onChange={(e) =>
-                    setOtherCategory(
-                      e.target.value
-                    )
-                  }
+                  onChange={(event) => setOtherCategory(event.target.value)}
                 >
-                  <option>
-                    Personal Care
-                  </option>
-                  <option>
-                    Cleaning
-                  </option>
-                  <option>
-                    Clothes Washing
-                  </option>
-                  <option>
-                    Household Item
-                  </option>
-                  <option>
-                    Bathroom Item
-                  </option>
-                  <option>
-                    Miscellaneous
-                  </option>
+                  <option>Personal Care</option>
+                  <option>Cleaning</option>
+                  <option>Clothes Washing</option>
+                  <option>Household Item</option>
+                  <option>Bathroom Item</option>
+                  <option>Miscellaneous</option>
                 </select>
               </label>
-
               <label>
                 Expense name
-
                 <input
                   placeholder="e.g. Soap, Toothpaste, Hanger, Detergent"
                   value={name}
-                  onChange={(e) =>
-                    setName(
-                      e.target.value
-                    )
-                  }
+                  onChange={(event) => setName(event.target.value)}
                 />
               </label>
             </>
@@ -1648,7 +1444,6 @@ function ExpenseModal({
 
           <label>
             Amount
-
             <input
               className="amount-input"
               type="number"
@@ -1656,24 +1451,14 @@ function ExpenseModal({
               step="0.01"
               placeholder="₹ 0"
               value={amount}
-              onChange={(e) =>
-                setAmount(
-                  e.target.value
-                )
-              }
+              onChange={(event) => setAmount(event.target.value)}
               required
             />
           </label>
 
-          <button
-            className="save-btn"
-            type="submit"
-          >
+          <button className="save-btn" type="submit">
             <Check size={18} />
-
-            {initial
-              ? "Update expense"
-              : "Save expense"}
+            {initial ? "Update expense" : "Save expense"}
           </button>
         </form>
       </div>
@@ -1681,566 +1466,43 @@ function ExpenseModal({
   );
 }
 
-function MoneyTracking({
-  transactions,
-  people,
-  totals,
-  onAdd,
-  onEdit,
-  onDelete
-}) {
-  return (
-    <section className="content">
-      <div className="money-hero">
-        <div className="money-hero-icon">
-          <HandCoins size={25} />
-        </div>
+function MoneyModal({ initial, type, transactions, onClose, onSave }) {
+  const [kind, setKind] = useState(type || "given");
+  const [person, setPerson] = useState(initial?.person || "");
+  const [date, setDate] = useState(initial?.date || today());
+  const [amount, setAmount] = useState(initial?.amount ?? "");
+  const [error, setError] = useState("");
 
-        <div>
-          <span className="hero-label">
-            MONEY OUTSTANDING
-          </span>
+  const currentBalance = person.trim()
+    ? getPersonBalance(transactions, person, initial?.id || null)
+    : 0;
 
-          <div className="money-hero-total">
-            {money(totals.remaining)}
-          </div>
-
-          <p>
-            Money received from others and
-            returned by you.
-          </p>
-        </div>
-      </div>
-
-      <div className="section-head">
-        <div>
-          <h2>Money overview</h2>
-          <p>Track your received and returned money</p>
-        </div>
-      </div>
-
-      <div className="stats-grid money-stats">
-        <Stat
-          icon={<TrendingUp />}
-          title="Total Given"
-          value={totals.given}
-          cls="money-given"
-        />
-
-        <Stat
-          icon={<TrendingDown />}
-          title="Total Returned"
-          value={totals.returned}
-          cls="money-returned"
-        />
-
-        <Stat
-          icon={<HandCoins />}
-          title="Outstanding"
-          value={totals.remaining}
-          cls="money-balance"
-        />
-      </div>
-
-      <div className="money-actions">
-        <button
-          className="money-action primary"
-          onClick={() =>
-            onAdd({
-              type: "given",
-              item: null
-            })
-          }
-        >
-          <TrendingUp size={18} />
-          <span>
-            <b>Money given</b>
-            <small>Record money received</small>
-          </span>
-          <Plus size={17} />
-        </button>
-
-        <button
-          className="money-action"
-          onClick={() =>
-            onAdd({
-              type: "returned",
-              item: null
-            })
-          }
-        >
-          <TrendingDown size={18} />
-          <span>
-            <b>Money returned</b>
-            <small>Record money you returned</small>
-          </span>
-          <Plus size={17} />
-        </button>
-      </div>
-
-      <div className="section-head money-section-title">
-        <div>
-          <h2>People & balances</h2>
-          <p>
-            Your current outstanding amounts
-          </p>
-        </div>
-      </div>
-
-      {people.length ? (
-        <div className="people-grid">
-          {people.map((person) => (
-            <PersonCard
-              key={person.person}
-              person={person}
-              transactions={transactions}
-              onAdd={onAdd}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="panel">
-          <div className="money-empty">
-            <div className="money-empty-icon">
-              <Users size={27} />
-            </div>
-
-            <b>No money records yet</b>
-
-            <span>
-              Add a person and record money
-              received from them.
-            </span>
-
-            <button
-              className="money-add-button"
-              onClick={() =>
-                onAdd({
-                  type: "given",
-                  item: null
-                })
-              }
-            >
-              <Plus size={17} />
-              Add first record
-            </button>
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function PersonCard({
-  person,
-  transactions,
-  onAdd,
-  onEdit,
-  onDelete
-}) {
-  const [expanded, setExpanded] =
-    useState(false);
-
-  const personTransactions =
-    transactions
-      .filter(
-        (x) =>
-          x.person.trim().toLowerCase() ===
-          person.person.trim().toLowerCase()
-      )
-      .sort(
-        (a, b) =>
-          b.date.localeCompare(a.date) ||
-          Number(b.id || 0) -
-            Number(a.id || 0)
-      );
-
-  return (
-    <div className="person-card">
-      <div className="person-card-head">
-        <div className="person-main">
-          <div className="person-avatar large">
-            {person.person
-              .charAt(0)
-              .toUpperCase()}
-          </div>
-
-          <div>
-            <h3>{person.person}</h3>
-            <span>
-              {personTransactions.length} transaction
-              {personTransactions.length === 1
-                ? ""
-                : "s"}
-            </span>
-          </div>
-        </div>
-
-        <div className="balance-box">
-          <span>Remaining</span>
-          <strong>
-            {money(person.remaining)}
-          </strong>
-        </div>
-      </div>
-
-      <div className="person-summary">
-        <div>
-          <span>Given</span>
-          <b>{money(person.given)}</b>
-        </div>
-
-        <div>
-          <span>Returned</span>
-          <b>{money(person.returned)}</b>
-        </div>
-
-        <div>
-          <span>Balance</span>
-          <b>{money(person.remaining)}</b>
-        </div>
-      </div>
-
-      <div className="person-progress">
-        <div>
-          <span>Repayment progress</span>
-
-          <b>
-            {person.given > 0
-              ? Math.min(
-                  100,
-                  Math.round(
-                    (person.returned /
-                      person.given) *
-                      100
-                  )
-                )
-              : 0}
-            %
-          </b>
-        </div>
-
-        <div className="progress-track">
-          <i
-            style={{
-              width: `${
-                person.given > 0
-                  ? Math.min(
-                      100,
-                      (person.returned /
-                        person.given) *
-                        100
-                    )
-                  : 0
-              }%`
-            }}
-          />
-        </div>
-      </div>
-
-      <div className="person-buttons">
-        <button
-          onClick={() =>
-            onAdd({
-              type: "returned",
-              item: {
-                person: person.person
-              }
-            })
-          }
-        >
-          <TrendingDown size={16} />
-          Return money
-        </button>
-
-        <button
-          onClick={() =>
-            setExpanded(!expanded)
-          }
-        >
-          {expanded ? "Hide history" : "View history"}
-          <ChevronRight
-            size={16}
-            className={
-              expanded ? "rotate-icon" : ""
-            }
-          />
-        </button>
-      </div>
-
-      {expanded && (
-        <div className="person-history">
-          <div className="history-title">
-            <div>
-              <b>{person.person}'s history</b>
-              <span>Complete transaction history</span>
-            </div>
-
-            <button
-              className="history-add"
-              onClick={() =>
-                onAdd({
-                  type: "given",
-                  item: {
-                    person: person.person
-                  }
-                })
-              }
-            >
-              <Plus size={15} />
-            </button>
-          </div>
-
-          {personTransactions.map(
-            (transaction) => {
-              const balanceAfter =
-                getBalanceAfterTransaction(
-                  personTransactions,
-                  transaction.id
-                );
-
-              return (
-                <div
-                  className="money-transaction"
-                  key={transaction.id}
-                >
-                  <div
-                    className={`transaction-icon ${
-                      transaction.type
-                    }`}
-                  >
-                    {transaction.type ===
-                    "given" ? (
-                      <TrendingUp size={16} />
-                    ) : (
-                      <TrendingDown size={16} />
-                    )}
-                  </div>
-
-                  <div className="transaction-info">
-                    <b>
-                      {transaction.type ===
-                      "given"
-                        ? "Given"
-                        : "Returned"}
-                    </b>
-
-                    <span>
-                      {formatDate(
-                        transaction.date
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="transaction-amount">
-                    <strong
-                      className={
-                        transaction.type
-                      }
-                    >
-                      {transaction.type ===
-                      "given"
-                        ? "+"
-                        : "-"}
-                      {money(
-                        transaction.amount
-                      )}
-                    </strong>
-
-                    <span>
-                      Balance{" "}
-                      {money(balanceAfter)}
-                    </span>
-                  </div>
-
-                  <div className="row-actions">
-                    <button
-                      title="Edit"
-                      onClick={() =>
-                        onEdit({
-                          type:
-                            transaction.type,
-                          item: transaction
-                        })
-                      }
-                    >
-                      <Edit3 size={15} />
-                    </button>
-
-                    <button
-                      title="Delete"
-                      onClick={() =>
-                        onDelete(
-                          transaction.id
-                        )
-                      }
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function getBalanceAfterTransaction(
-  transactions,
-  transactionId
-) {
-  const sorted = [...transactions].sort(
-    (a, b) =>
-      a.date.localeCompare(b.date) ||
-      Number(a.id || 0) -
-        Number(b.id || 0)
-  );
-
-  let balance = 0;
-
-  for (const transaction of sorted) {
-    if (transaction.type === "given") {
-      balance += Number(
-        transaction.amount || 0
-      );
-    } else {
-      balance -= Number(
-        transaction.amount || 0
-      );
-    }
-
-    if (transaction.id === transactionId) {
-      return Math.max(0, balance);
-    }
-  }
-
-  return Math.max(0, balance);
-}
-
-function formatDate(value) {
-  if (!value) return "";
-
-  const date = new Date(
-    `${value}T00:00:00`
-  );
-
-  return date.toLocaleDateString(
-    "en-IN",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric"
-    }
-  );
-}
-
-function MoneyModal({
-  initial,
-  type,
-  transactions,
-  onClose,
-  onSave
-}) {
-  const [kind, setKind] =
-    useState(type || "given");
-
-  const [person, setPerson] =
-    useState(
-      initial?.person || ""
-    );
-
-  const [date, setDate] =
-    useState(
-      initial?.date || today()
-    );
-
-  const [amount, setAmount] =
-    useState(
-      initial?.amount ?? ""
-    );
-
-  const [error, setError] =
-    useState("");
-
-  const normalizedPerson =
-    person.trim().toLowerCase();
-
-  const totalGiven =
-    transactions
-      .filter(
-        (x) =>
-          x.person.trim().toLowerCase() ===
-            normalizedPerson &&
-          x.type === "given" &&
-          x.id !== initial?.id
-      )
-      .reduce(
-        (sum, x) =>
-          sum + Number(x.amount || 0),
-        0
-      );
-
-  const totalReturned =
-    transactions
-      .filter(
-        (x) =>
-          x.person.trim().toLowerCase() ===
-            normalizedPerson &&
-          x.type === "returned" &&
-          x.id !== initial?.id
-      )
-      .reduce(
-        (sum, x) =>
-          sum + Number(x.amount || 0),
-        0
-      );
-
-  const availableBalance =
-    Math.max(
-      0,
-      totalGiven - totalReturned
-    );
-
-  function submit(e) {
-    e.preventDefault();
-
-    const value = Number(amount);
+  function submit(event) {
+    event.preventDefault();
+    const numericAmount = Number(amount);
 
     if (!person.trim()) {
       setError("Please enter the person's name.");
       return;
     }
 
-    if (!value || value <= 0) {
+    if (!numericAmount || numericAmount <= 0) {
       setError("Please enter a valid amount.");
       return;
     }
 
-    if (
-      kind === "returned" &&
-      value > availableBalance
-    ) {
-      setError(
-        `You can return maximum ${money(
-          availableBalance
-        )}.`
-      );
+    if (kind === "returned" && numericAmount > currentBalance) {
+      setError(`You can return only up to ${money(currentBalance)}.`);
       return;
     }
 
     setError("");
-
     onSave({
       id: initial?.id,
       person: person.trim(),
       date,
-      amount: value,
-      type: kind
+      type: kind,
+      amount: numericAmount
     });
   }
 
@@ -2249,23 +1511,10 @@ function MoneyModal({
       <div className="modal money-modal">
         <div className="modal-head">
           <div>
-            <span className="eyebrow">
-              {initial
-                ? "EDIT TRANSACTION"
-                : "MONEY TRACKING"}
-            </span>
-
-            <h2>
-              {initial
-                ? "Update transaction"
-                : "Record money"}
-            </h2>
+            <span className="eyebrow">{initial ? "EDIT TRANSACTION" : "MONEY TRACKING"}</span>
+            <h2>{initial ? "Update transaction" : "Add money transaction"}</h2>
           </div>
-
-          <button
-            className="icon-btn"
-            onClick={onClose}
-          >
+          <button className="icon-btn" onClick={onClose} aria-label="Close">
             <X />
           </button>
         </div>
@@ -2273,140 +1522,84 @@ function MoneyModal({
         <div className="money-type-tabs">
           <button
             type="button"
-            className={
-              kind === "given"
-                ? "selected"
-                : ""
-            }
+            className={kind === "given" ? "selected" : ""}
             onClick={() => {
               setKind("given");
               setError("");
             }}
           >
-            <TrendingUp size={18} />
-
+            <ArrowDownLeft size={18} />
             <span>Money Given</span>
-
-            <small>
-              Received from person
-            </small>
+            <small>Received from person</small>
           </button>
-
           <button
             type="button"
-            className={
-              kind === "returned"
-                ? "selected"
-                : ""
-            }
+            className={kind === "returned" ? "selected" : ""}
             onClick={() => {
               setKind("returned");
               setError("");
             }}
           >
-            <TrendingDown size={18} />
-
+            <ArrowUpRight size={18} />
             <span>Money Returned</span>
-
-            <small>
-              Amount you returned
-            </small>
+            <small>Amount paid back</small>
           </button>
         </div>
 
         <form onSubmit={submit}>
           <label>
             Person's name
-
-            <div className="input-with-icon">
-              <UserRound size={17} />
-
-              <input
-                type="text"
-                placeholder="e.g. Arun"
-                value={person}
-                onChange={(e) => {
-                  setPerson(
-                    e.target.value
-                  );
-                  setError("");
-                }}
-                required
-              />
-            </div>
+            <input
+              autoFocus
+              placeholder="e.g. Arun"
+              value={person}
+              onChange={(event) => {
+                setPerson(event.target.value);
+                setError("");
+              }}
+              required
+            />
           </label>
 
           <label>
             Date
-
             <input
               type="date"
               value={date}
-              onChange={(e) =>
-                setDate(
-                  e.target.value
-                )
-              }
+              onChange={(event) => setDate(event.target.value)}
               required
             />
           </label>
 
           <label>
             Amount
-
-            <div className="input-with-icon amount-wrapper">
-              <IndianRupee size={17} />
-
-              <input
-                className="amount-input"
-                type="number"
-                min="1"
-                step="0.01"
-                placeholder="₹ 0"
-                value={amount}
-                onChange={(e) => {
-                  setAmount(
-                    e.target.value
-                  );
-                  setError("");
-                }}
-                required
-              />
-            </div>
+            <input
+              className="amount-input"
+              type="number"
+              min="1"
+              step="0.01"
+              placeholder="₹ 0"
+              value={amount}
+              onChange={(event) => {
+                setAmount(event.target.value);
+                setError("");
+              }}
+              required
+            />
           </label>
 
-          {kind === "returned" && (
+          {kind === "returned" && person.trim() && (
             <div className="available-balance">
-              <div>
-                <span>Available balance</span>
-                <strong>
-                  {money(
-                    availableBalance
-                  )}
-                </strong>
-              </div>
-
-              <HandCoins size={21} />
+              <span>Available remaining balance</span>
+              <strong>{money(currentBalance)}</strong>
             </div>
           )}
 
-          {error && (
-            <div className="form-error">
-              {error}
-            </div>
-          )}
+          {error && <div className="form-error">{error}</div>}
 
-          <button
-            className="save-btn"
-            type="submit"
-          >
+          <button className="save-btn" type="submit">
             <Check size={18} />
-
-            {initial
-              ? "Update transaction"
-              : kind === "given"
-              ? "Save money received"
-              : "Save money returned"}
+            {initial ? "Update transaction" : "Save transaction"}
           </button>
         </form>
       </div>
@@ -2414,6 +1607,4 @@ function MoneyModal({
   );
 }
 
-createRoot(
-  document.getElementById("root")
-).render(<App />);
+createRoot(document.getElementById("root")).render(<App />);
