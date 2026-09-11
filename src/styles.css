@@ -62,6 +62,7 @@ select:focus-visible {
   color: #111827;
   display: grid;
   place-items: center;
+  flex: 0 0 auto;
 }
 
 .brand b {
@@ -96,6 +97,7 @@ select:focus-visible {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-height: 44px;
 }
 
 .nav-item svg {
@@ -149,6 +151,10 @@ select:focus-visible {
   color: #fca5a5;
   font-size: 12px;
   padding: 12px 10px;
+}
+
+.money-danger {
+  color: #f0a0a0;
 }
 
 .backdrop {
@@ -216,6 +222,7 @@ p {
   justify-content: center;
   font-weight: 700;
   font-size: 12px;
+  min-height: 42px;
 }
 
 .add-main:hover,
@@ -356,8 +363,6 @@ p {
   background: #e8f7ef;
 }
 
-/* NEW - Other Expenses */
-
 .stat-icon.other {
   background: #fff1e8;
   color: #b86a38;
@@ -373,6 +378,18 @@ p {
 
 .stat-icon.evening {
   background: #eee9ff;
+}
+
+.stat-icon.money-given {
+  background: #e5f8ec;
+}
+
+.stat-icon.money-returned {
+  background: #fff0e7;
+}
+
+.stat-icon.money-balance {
+  background: #eeeaff;
 }
 
 .stat-card span {
@@ -565,8 +582,6 @@ p {
   background: #eeeaff;
 }
 
-/* NEW - Other Expense Row */
-
 .row-icon.other {
   background: #fff1e8;
   color: #b86a38;
@@ -717,101 +732,641 @@ p {
 }
 
 /* =========================
-   FOOTER
+   MONEY DASHBOARD
 ========================= */
 
-footer {
-  text-align: center;
-  color: #a1a8b3;
+.money-dashboard-card {
+  margin-top: 14px;
+  background: #fff;
+  border: 1px solid #e9ebef;
+  border-radius: 16px;
+  padding: 19px;
+}
+
+.money-dashboard-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.money-dashboard-head > div:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+.money-dashboard-icon {
+  width: 43px;
+  height: 43px;
+  border-radius: 12px;
+  background: #eeeaff;
+  color: #5d63d8;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.money-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.money-mini-grid > div {
+  background: #f8f9fb;
+  border-radius: 11px;
+  padding: 12px;
+}
+
+.money-mini-grid span {
+  display: block;
+  color: #8b95a4;
   font-size: 10px;
-  margin-top: 30px;
-  padding: 10px;
+}
+
+.money-mini-grid strong {
+  display: block;
+  font-size: 15px;
+  margin-top: 5px;
+}
+
+.money-mini-people {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.money-mini-person {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: #fafafa;
+  padding: 9px;
+  border-radius: 10px;
+}
+
+.person-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #111827;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  flex: 0 0 auto;
+}
+
+.person-avatar.large {
+  width: 45px;
+  height: 45px;
+  font-size: 16px;
+}
+
+.money-mini-person b {
+  display: block;
+  font-size: 11px;
+}
+
+.money-mini-person span {
+  display: block;
+  font-size: 9px;
+  color: #929aa6;
+  margin-top: 2px;
+}
+
+.money-add-button {
+  margin-top: 12px;
+  border: 0;
+  background: #111827;
+  color: #fff;
+  border-radius: 10px;
+  min-height: 42px;
+  padding: 10px 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.money-add-button:hover {
+  opacity: 0.92;
 }
 
 /* =========================
-   MODAL
+   MONEY PAGE
 ========================= */
 
-.modal-backdrop {
-  position: fixed;
-  z-index: 50;
-  inset: 0;
-  background: rgba(17, 24, 39, 0.52);
-  backdrop-filter: blur(4px);
+.money-hero {
+  background: #111827;
+  color: #fff;
+  border-radius: 19px;
+  padding: 23px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.money-hero:after {
+  content: "";
+  position: absolute;
+  width: 170px;
+  height: 170px;
+  border: 1px solid #3a4557;
+  border-radius: 50%;
+  right: -55px;
+  top: -70px;
+}
+
+.money-hero-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  background: #fff;
+  color: #111827;
   display: grid;
   place-items: center;
-  padding: 15px;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 1;
 }
 
-.modal {
+.money-hero > div:last-child {
+  position: relative;
+  z-index: 1;
+}
+
+.money-hero-total {
+  font-size: 35px;
+  font-weight: 850;
+  letter-spacing: -0.055em;
+  margin-top: 6px;
+}
+
+.money-stats {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.money-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.money-action {
+  border: 1px solid #e9ebef;
   background: #fff;
-  border-radius: 19px;
-  width: min(480px, 100%);
-  max-height: 92vh;
-  overflow: auto;
-  padding: 21px;
+  border-radius: 13px;
+  padding: 14px;
+  min-height: 67px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  color: #26303d;
 }
 
-.modal-head {
+.money-action > svg:first-child {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.money-action > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.money-action b {
+  display: block;
+  font-size: 12px;
+}
+
+.money-action small {
+  display: block;
+  color: #929aa6;
+  font-size: 9px;
+  margin-top: 3px;
+}
+
+.money-action > svg:last-child {
+  color: #8c95a2;
+}
+
+.money-action.primary {
+  background: #111827;
+  border-color: #111827;
+  color: #fff;
+}
+
+.money-action.primary small,
+.money-action.primary > svg:last-child {
+  color: #b5bdc9;
+}
+
+.money-section-title {
+  margin-top: 25px;
+}
+
+.people-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 13px;
+}
+
+.person-card {
+  background: #fff;
+  border: 1px solid #e9ebef;
+  border-radius: 16px;
+  padding: 17px;
+  min-width: 0;
+}
+
+.person-card-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 10px;
 }
 
-.modal-head h2 {
-  font-size: 22px;
+.person-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.person-main h3 {
+  margin: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.person-main span {
+  display: block;
+  color: #929aa6;
+  font-size: 9px;
+  margin-top: 3px;
+}
+
+.balance-box {
+  text-align: right;
+  flex: 0 0 auto;
+}
+
+.balance-box span {
+  display: block;
+  color: #929aa6;
+  font-size: 9px;
+}
+
+.balance-box strong {
+  display: block;
+  color: #5d63d8;
+  font-size: 15px;
+  margin-top: 3px;
+}
+
+.person-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin-top: 15px;
+}
+
+.person-summary > div {
+  background: #f8f9fb;
+  border-radius: 9px;
+  padding: 9px;
+}
+
+.person-summary span {
+  display: block;
+  color: #929aa6;
+  font-size: 8px;
+}
+
+.person-summary b {
+  display: block;
+  font-size: 11px;
   margin-top: 4px;
 }
 
+.person-progress {
+  margin-top: 14px;
+}
+
+.person-progress > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  color: #929aa6;
+}
+
+.person-progress b {
+  color: #5d63d8;
+}
+
+.progress-track {
+  height: 6px;
+  background: #edf0f3;
+  border-radius: 9px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.progress-track i {
+  display: block;
+  height: 100%;
+  background: #111827;
+  border-radius: 9px;
+}
+
+.person-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: 13px;
+}
+
+.person-buttons button {
+  min-height: 40px;
+  border: 0;
+  background: #f5f6f8;
+  color: #424b58;
+  border-radius: 9px;
+  padding: 9px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.person-buttons button:first-child {
+  background: #111827;
+  color: #fff;
+}
+
+.rotate-icon {
+  transform: rotate(90deg);
+}
+
+.person-history {
+  border-top: 1px solid #edf0f3;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.history-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 7px;
+}
+
+.history-title b {
+  display: block;
+  font-size: 11px;
+}
+
+.history-title span {
+  display: block;
+  color: #929aa6;
+  font-size: 9px;
+  margin-top: 2px;
+}
+
+.history-add {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  background: #f3f4f6;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+}
+
+.money-transaction {
+  display: grid;
+  grid-template-columns: 33px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f1f3;
+}
+
+.money-transaction:last-child {
+  border-bottom: 0;
+}
+
+.transaction-icon {
+  width: 33px;
+  height: 33px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+}
+
+.transaction-icon.given {
+  background: #e5f8ec;
+  color: #31915a;
+}
+
+.transaction-icon.returned {
+  background: #fff0e7;
+  color: #b86a38;
+}
+
+.transaction-info {
+  min-width: 0;
+}
+
+.transaction-info b {
+  display: block;
+  font-size: 10px;
+}
+
+.transaction-info span {
+  display: block;
+  color: #929aa6;
+  font-size: 8px;
+  margin-top: 2px;
+}
+
+.transaction-amount {
+  text-align: right;
+  min-width: 75px;
+}
+
+.transaction-amount strong {
+  display: block;
+  font-size: 10px;
+}
+
+.transaction-amount strong.given {
+  color: #31915a;
+}
+
+.transaction-amount strong.returned {
+  color: #b35d5d;
+}
+
+.transaction-amount span {
+  display: block;
+  color: #929aa6;
+  font-size: 8px;
+  margin-top: 2px;
+}
+
+.money-empty {
+  padding: 38px 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.money-empty-icon {
+  width: 55px;
+  height: 55px;
+  border-radius: 15px;
+  background: #eeeaff;
+  color: #5d63d8;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+}
+
+.money-empty b {
+  font-size: 14px;
+  color: #4e5662;
+}
+
+.money-empty span {
+  color: #929aa6;
+  font-size: 10px;
+  margin-top: 5px;
+}
+
 /* =========================
-   EXPENSE TYPE TABS
+   MONEY MODAL
 ========================= */
 
-.type-tabs {
+.money-modal {
+  width: min(500px, 100%);
+}
+
+.money-type-tabs {
   display: grid;
-
-  /* UPDATED: 5 categories */
-  grid-template-columns: repeat(5, 1fr);
-
-  gap: 6px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
   margin: 19px 0;
 }
 
-.type-tabs button {
+.money-type-tabs button {
   border: 1px solid #e7e9ed;
   background: #fff;
-  border-radius: 10px;
-  padding: 9px 4px;
+  border-radius: 11px;
+  padding: 13px 10px;
   color: #7e8793;
+  text-align: left;
   display: grid;
-  place-items: center;
-  gap: 5px;
-  min-width: 0;
-  min-height: 54px;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  row-gap: 3px;
+  align-items: center;
+  min-height: 68px;
 }
 
-.type-tabs button svg {
-  width: 16px;
-  height: 16px;
+.money-type-tabs button svg {
+  grid-row: span 2;
 }
 
-.type-tabs button span {
-  font-size: 9px;
-  font-weight: 700;
-  white-space: nowrap;
+.money-type-tabs button span {
+  font-size: 11px;
+  font-weight: 800;
 }
 
-.type-tabs button.selected {
+.money-type-tabs button small {
+  font-size: 8px;
+  color: #a0a7b1;
+}
+
+.money-type-tabs button.selected {
   background: #111827;
+  border-color: #111827;
   color: #fff;
-  border-color: #111827;
 }
 
-/* Other tab visual */
+.money-type-tabs button.selected small {
+  color: #b5bdc9;
+}
 
-.type-tabs button:nth-child(5).selected {
-  background: #111827;
-  border-color: #111827;
+.input-with-icon {
+  position: relative;
+  margin-top: 6px;
+}
+
+.input-with-icon > svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #929aa6;
+  pointer-events: none;
+}
+
+.input-with-icon input {
+  margin-top: 0;
+  padding-left: 38px;
+}
+
+.amount-wrapper > svg {
+  color: #5d63d8;
+}
+
+.available-balance {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f3f1ff;
+  border: 1px solid #e5e1ff;
+  border-radius: 11px;
+  padding: 12px;
+  color: #5d63d8;
+}
+
+.available-balance span {
+  display: block;
+  color: #858b9a;
+  font-size: 9px;
+}
+
+.available-balance strong {
+  display: block;
+  font-size: 17px;
+  margin-top: 3px;
+}
+
+.form-error {
+  background: #fff0f0;
+  border: 1px solid #ffd9d9;
+  color: #b35d5d;
+  border-radius: 10px;
+  padding: 10px 11px;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 /* =========================
@@ -839,6 +1394,7 @@ select {
   margin-top: 6px;
   font-size: 12px;
   color: #222b36;
+  min-height: 42px;
 }
 
 input::placeholder {
@@ -885,6 +1441,94 @@ select:focus {
 }
 
 /* =========================
+   MODAL
+========================= */
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.52);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  padding: 15px;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 19px;
+  width: min(480px, 100%);
+  max-height: 92vh;
+  overflow: auto;
+  padding: 21px;
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.modal-head h2 {
+  font-size: 22px;
+  margin-top: 4px;
+}
+
+/* =========================
+   EXPENSE TYPE TABS
+========================= */
+
+.type-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin: 19px 0;
+}
+
+.type-tabs button {
+  border: 1px solid #e7e9ed;
+  background: #fff;
+  border-radius: 10px;
+  padding: 9px 4px;
+  color: #7e8793;
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  min-width: 0;
+  min-height: 54px;
+}
+
+.type-tabs button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.type-tabs button span {
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.type-tabs button.selected {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+footer {
+  text-align: center;
+  color: #a1a8b3;
+  font-size: 10px;
+  margin-top: 30px;
+  padding: 10px;
+}
+
+/* =========================
    TOAST
 ========================= */
 
@@ -905,6 +1549,7 @@ select:focus {
   align-items: center;
   box-shadow: 0 10px 30px #0002;
   white-space: nowrap;
+  max-width: calc(100vw - 28px);
 }
 
 /* =========================
@@ -919,10 +1564,6 @@ select:focus {
 
   .stats-grid {
     grid-template-columns: repeat(3, 1fr);
-  }
-
-  .stat-card:last-child {
-    grid-column: span 1;
   }
 }
 
@@ -969,6 +1610,10 @@ select:focus {
   }
 
   .grid-two {
+    grid-template-columns: 1fr;
+  }
+
+  .people-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -1055,7 +1700,6 @@ select:focus {
   .stat-icon {
     width: 34px;
     height: 34px;
-    border-radius: 9px;
   }
 
   .stat-icon svg {
@@ -1107,7 +1751,6 @@ select:focus {
   .row-icon {
     width: 35px;
     height: 35px;
-    border-radius: 9px;
   }
 
   .row-icon svg {
@@ -1162,11 +1805,6 @@ select:focus {
   .food-stats {
     margin-bottom: 8px;
   }
-
-  /*
-    5 expense tabs need to fit on a small mobile screen.
-    Smaller gaps + compact typography keeps them touch-friendly.
-  */
 
   .type-tabs {
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1229,9 +1867,160 @@ select:focus {
 
   .toast {
     bottom: 16px;
-    max-width: calc(100vw - 28px);
-    overflow: hidden;
-    text-overflow: ellipsis;
+  }
+
+  /* =========================
+     MONEY MOBILE
+  ========================= */
+
+  .money-hero {
+    padding: 19px;
+    border-radius: 17px;
+    gap: 11px;
+  }
+
+  .money-hero-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .money-hero-total {
+    font-size: 31px;
+  }
+
+  .money-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .money-stats .stat-card:last-child {
+    grid-column: span 2;
+  }
+
+  .money-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .money-action {
+    min-height: 61px;
+    padding: 11px;
+  }
+
+  .people-grid {
+    gap: 8px;
+  }
+
+  .person-card {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .person-card-head {
+    gap: 7px;
+  }
+
+  .person-main {
+    gap: 8px;
+  }
+
+  .person-avatar.large {
+    width: 39px;
+    height: 39px;
+    font-size: 14px;
+  }
+
+  .person-main h3 {
+    font-size: 12px;
+  }
+
+  .person-main span {
+    font-size: 8px;
+  }
+
+  .balance-box strong {
+    font-size: 13px;
+  }
+
+  .person-summary {
+    margin-top: 12px;
+    gap: 5px;
+  }
+
+  .person-summary > div {
+    padding: 8px;
+  }
+
+  .person-summary b {
+    font-size: 10px;
+  }
+
+  .person-buttons {
+    gap: 6px;
+  }
+
+  .person-buttons button {
+    min-height: 42px;
+    padding: 8px 5px;
+    font-size: 9px;
+  }
+
+  .money-transaction {
+    grid-template-columns: 30px 1fr auto;
+    gap: 7px;
+  }
+
+  .money-transaction .row-actions {
+    grid-column: 2 / -1;
+    justify-content: flex-end;
+    margin-top: -4px;
+  }
+
+  .transaction-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .transaction-info b {
+    font-size: 9px;
+  }
+
+  .transaction-info span {
+    font-size: 8px;
+  }
+
+  .transaction-amount {
+    min-width: 80px;
+  }
+
+  .money-type-tabs {
+    gap: 6px;
+    margin: 16px 0;
+  }
+
+  .money-type-tabs button {
+    padding: 10px 7px;
+    min-height: 65px;
+  }
+
+  .money-type-tabs button span {
+    font-size: 9px;
+  }
+
+  .money-type-tabs button small {
+    font-size: 7px;
+  }
+
+  .available-balance {
+    padding: 11px;
+  }
+
+  .available-balance strong {
+    font-size: 16px;
+  }
+
+  .money-empty {
+    padding: 34px 10px;
   }
 }
 
@@ -1290,5 +2079,21 @@ select:focus {
 
   .modal {
     padding: 14px;
+  }
+
+  .money-type-tabs button {
+    padding: 8px 5px;
+  }
+
+  .money-type-tabs button span {
+    font-size: 8px;
+  }
+
+  .money-type-tabs button small {
+    font-size: 6px;
+  }
+
+  .person-summary b {
+    font-size: 9px;
   }
 }
