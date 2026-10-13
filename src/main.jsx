@@ -675,6 +675,35 @@ function Dashboard({
   onView,
   onMoneyView
 }) {
+  const monthlyExpenses = useMemo(() => {
+    const grouped = new Map();
+
+    all.forEach((expense) => {
+      // Expense dates are stored as YYYY-MM-DD.
+      const monthKey = String(expense.date || "").slice(0, 7);
+      if (!/^\d{4}-\d{2}$/.test(monthKey)) return;
+
+      if (!grouped.has(monthKey)) {
+        const [year, month] = monthKey.split("-").map(Number);
+        grouped.set(monthKey, {
+          key: monthKey,
+          label: new Date(year, month - 1, 1).toLocaleDateString("en-IN", {
+            month: "long",
+            year: "numeric"
+          }),
+          total: 0,
+          count: 0
+        });
+      }
+
+      const month = grouped.get(monthKey);
+      month.total += Number(expense.amount || 0);
+      month.count += 1;
+    });
+
+    return [...grouped.values()].sort((a, b) => b.key.localeCompare(a.key));
+  }, [all]);
+
   return (
     <section className="content">
       <div className="hero-card">
@@ -688,6 +717,37 @@ function Dashboard({
           <Sparkles size={20} />
           <span>This month</span>
         </div>
+      </div>
+
+      <div className="panel monthly-expenses-panel">
+        <div className="panel-head">
+          <div>
+            <h2>Monthly expenses</h2>
+            <p>Your spending grouped by month</p>
+          </div>
+          <CalendarDays size={19} className="monthly-expenses-icon" />
+        </div>
+
+        {monthlyExpenses.length ? (
+          <div className="monthly-expenses-list">
+            {monthlyExpenses.map((month) => (
+              <div className="monthly-expense-row" key={month.key}>
+                <div className="monthly-expense-info">
+                  <span className="monthly-expense-dot" />
+                  <div>
+                    <b>{month.label}</b>
+                    <span>{month.count} expense{month.count === 1 ? "" : "s"}</span>
+                  </div>
+                </div>
+                <strong>{money(month.total)}</strong>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="monthly-expenses-empty">
+            No monthly expenses to show yet. Add an expense to get started.
+          </div>
+        )}
       </div>
 
       <div className="section-head">
