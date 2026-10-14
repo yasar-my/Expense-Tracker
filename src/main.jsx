@@ -123,6 +123,13 @@ function getMonthName(monthKey) {
   });
 }
 
+function getMonthShort(monthKey) {
+  const { year, month } = getMonthParts(monthKey);
+  return new Date(year, month - 1, 1)
+    .toLocaleDateString("en-IN", { month: "short" })
+    .toUpperCase();
+}
+
 function getMonthLabel(monthKey) {
   const { year, month } = getMonthParts(monthKey);
   if (!year || !month) return "Unknown month";
@@ -145,6 +152,7 @@ function buildMonthlyBills(expenses) {
         key: monthKey,
         label: getMonthLabel(monthKey),
         monthName: getMonthName(monthKey),
+        monthShort: getMonthShort(monthKey),
         year,
         total: 0,
         count: 0
@@ -540,6 +548,8 @@ function App() {
           </button>
         </div>
 
+        <div className="nav-label">MENU</div>
+
         <nav>
           <Nav
             active={page === "dashboard"}
@@ -807,22 +817,30 @@ function Nav({ active, onClick, icon, children }) {
   );
 }
 
-function MonthCard({ bill, onOpen }) {
+function MonthCard({ bill, max, onOpen }) {
+  const share = max > 0 ? Math.max(6, Math.round((bill.total / max) * 100)) : 0;
+
   return (
     <button
       type="button"
-      className="monthly-expense-row"
+      className="month-card"
       onClick={() => onOpen(bill.key)}
       aria-label={`Open ${bill.label} bill`}
     >
-      <div className="monthly-expense-info">
-        <span className="monthly-expense-dot" />
-        <div>
-          <b>{bill.monthName}</b>
-          <span className="month-card-year">{bill.year}</span>
-          <span className="month-card-count">
-            {bill.count} expense{bill.count === 1 ? "" : "s"}
-          </span>
+      <div className="month-card-badge">
+        <b>{bill.monthShort}</b>
+        <span>{bill.year}</span>
+      </div>
+
+      <div className="month-card-body">
+        <div className="month-card-title">
+          <b>{bill.monthName} {bill.year}</b>
+        </div>
+        <span className="month-card-count">
+          {bill.count} expense{bill.count === 1 ? "" : "s"}
+        </span>
+        <div className="month-card-bar">
+          <i style={{ width: `${share}%` }} />
         </div>
       </div>
 
@@ -837,6 +855,8 @@ function MonthCard({ bill, onOpen }) {
 }
 
 function MonthlyBills({ monthlyBills, onOpenMonth }) {
+  const max = Math.max(0, ...monthlyBills.map((bill) => bill.total));
+
   return (
     <section className="content">
       <div className="panel monthly-expenses-panel monthly-page-panel">
@@ -852,9 +872,14 @@ function MonthlyBills({ monthlyBills, onOpenMonth }) {
         </div>
 
         {monthlyBills.length ? (
-          <div className="monthly-expenses-list">
+          <div className="month-card-list">
             {monthlyBills.map((bill) => (
-              <MonthCard key={bill.key} bill={bill} onOpen={onOpenMonth} />
+              <MonthCard
+                key={bill.key}
+                bill={bill}
+                max={max}
+                onOpen={onOpenMonth}
+              />
             ))}
           </div>
         ) : (
@@ -1008,18 +1033,27 @@ function Dashboard({
   onView,
   onMoneyView
 }) {
+  const max = Math.max(0, ...monthlyBills.map((bill) => bill.total));
+  const currentKey = today().slice(0, 7);
+  const thisMonth = monthlyBills.find((bill) => bill.key === currentKey);
+
   return (
     <section className="content">
       <div className="hero-card">
-        <div>
+        <div className="hero-main">
           <span className="hero-label">TOTAL SPENT</span>
           <div className="hero-total">{money(totals.grand)}</div>
           <p>Room rent, travel, food, snacks & other expenses</p>
         </div>
 
         <div className="hero-art">
-          <Sparkles size={20} />
-          <span>This month</span>
+          <div className="hero-art-icon">
+            <Sparkles size={18} />
+          </div>
+          <div>
+            <span>This month</span>
+            <b>{money(thisMonth ? thisMonth.total : 0)}</b>
+          </div>
         </div>
       </div>
 
@@ -1033,9 +1067,14 @@ function Dashboard({
         </div>
 
         {monthlyBills.length ? (
-          <div className="monthly-expenses-list">
+          <div className="month-card-list">
             {monthlyBills.map((bill) => (
-              <MonthCard key={bill.key} bill={bill} onOpen={onOpenMonth} />
+              <MonthCard
+                key={bill.key}
+                bill={bill}
+                max={max}
+                onOpen={onOpenMonth}
+              />
             ))}
           </div>
         ) : (
