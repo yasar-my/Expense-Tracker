@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowDownLeft,
+  ArrowLeft,
   ArrowUpRight,
   BedDouble,
   CalendarDays,
@@ -101,9 +102,86 @@ function createId(type) {
   return `${Date.now()}-${type}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+/* ---------- Monthly bill helpers ---------- */
+
+const MONTH_KEY_PATTERN = /^\d{4}-\d{2}$/;
+
+function getMonthKey(date) {
+  const key = String(date || "").slice(0, 7);
+  return MONTH_KEY_PATTERN.test(key) ? key : "";
+}
+
+function getMonthParts(monthKey) {
+  const [year, month] = String(monthKey).split("-").map(Number);
+  return { year, month };
+}
+
+function getMonthName(monthKey) {
+  const { year, month } = getMonthParts(monthKey);
+  return new Date(year, month - 1, 1).toLocaleDateString("en-IN", {
+    month: "long"
+  });
+}
+
+function getMonthLabel(monthKey) {
+  const { year, month } = getMonthParts(monthKey);
+  if (!year || !month) return "Unknown month";
+  return new Date(year, month - 1, 1).toLocaleDateString("en-IN", {
+    month: "long",
+    year: "numeric"
+  });
+}
+
+function buildMonthlyBills(expenses) {
+  const grouped = new Map();
+
+  expenses.forEach((expense) => {
+    const monthKey = getMonthKey(expense.date);
+    if (!monthKey) return;
+
+    if (!grouped.has(monthKey)) {
+      const { year } = getMonthParts(monthKey);
+      grouped.set(monthKey, {
+        key: monthKey,
+        label: getMonthLabel(monthKey),
+        monthName: getMonthName(monthKey),
+        year,
+        total: 0,
+        count: 0
+      });
+    }
+
+    const bill = grouped.get(monthKey);
+    bill.total += Number(expense.amount || 0);
+    bill.count += 1;
+  });
+
+  return [...grouped.values()].sort((a, b) => b.key.localeCompare(a.key));
+}
+
+function formatDate(date) {
+  if (!date) return "";
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return String(date);
+  return parsed.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+}
+
+const TYPE_LABELS = {
+  rent: "Room Rent",
+  travel: "Travel",
+  food: "Food",
+  snacks: "Snacks",
+  other: "Other"
+};
+
 function App() {
   const [data, setData] = useState(loadData);
   const [page, setPage] = useState("dashboard");
+  const [selectedMonth, setSelectedMonth] = useState(null);
   const [editing, setEditing] = useState(null);
   const [moneyEditing, setMoneyEditing] = useState(null);
   const [menu, setMenu] = useState(false);
@@ -169,6 +247,16 @@ function App() {
           Number(b.id || 0) - Number(a.id || 0)
       ),
     [data]
+  );
+
+  const monthlyBills = useMemo(() => buildMonthlyBills(all), [all]);
+
+  const selectedExpenses = useMemo(
+    () =>
+      selectedMonth
+        ? all.filter((expense) => getMonthKey(expense.date) === selectedMonth)
+        : [],
+    [all, selectedMonth]
   );
 
   const people = useMemo(() => {
@@ -385,6 +473,8 @@ function App() {
       other: [],
       money: []
     });
+    setSelectedMonth(null);
+    if (page === "month") setPage("months");
 
     flash("All data deleted");
   }
@@ -401,6 +491,32 @@ function App() {
     setPage(nextPage);
     setMenu(false);
   }
+
+  function openMonth(monthKey) {
+    setSelectedMonth(monthKey);
+    setPage("month");
+    setMenu(false);
+    window.scrollTo({ top: 0 });
+  }
+
+  function backToMonths() {
+    setSelectedMonth(null);
+    setPage("months");
+    window.scrollTo({ top: 0 });
+  }
+
+  const headerTitle =
+    page === "dashboard"
+      ? "Good to see you"
+      : page === "food"
+        ? "Food breakdown"
+        : page === "money"
+          ? "Money tracking"
+          : page === "months"
+            ? "Monthly bills"
+            : page === "month"
+              ? getMonthLabel(selectedMonth)
+              : "All expenses";
 
   return (
     <div className="app">
@@ -431,6 +547,17 @@ function App() {
             icon={<LayoutDashboard />}
           >
             Dashboard
+          </Nav>
+
+          <Nav
+            active={page === "months" || page === "month"}
+            onClick={() => {
+              setSelectedMonth(null);
+              navigate("months");
+            }}
+            icon={<CalendarDays />}
+          >
+            Monthly Bills
           </Nav>
 
           <Nav
@@ -503,16 +630,10 @@ function App() {
           </button>
 
           <div>
-            <div className="eyebrow">PERSONAL FINANCE</div>
-            <h1>
-              {page === "dashboard"
-                ? "Good to see you"
-                : page === "food"
-                  ? "Food breakdown"
-                  : page === "money"
-                    ? "Money tracking"
-                    : "All expenses"}
-            </h1>
+            <div className="eyebrow">
+              {page === "month" ? "MONTHLY BILL" : "PERSONAL FINANCE"}
+            </div>
+            <h1>{headerTitle}</h1>
           </div>
 
           {page === "money" ? (
@@ -543,12 +664,31 @@ function App() {
           <Dashboard
             totals={totals}
             all={all}
+            monthlyBills={monthlyBills}
+            onOpenMonth={openMonth}
             onAdd={setEditing}
             onMoneyAdd={() =>
               setMoneyEditing({ type: "given", item: null })
             }
             onView={() => setPage("expenses")}
             onMoneyView={() => setPage("money")}
+          />
+        )}
+
+        {page === "months" && (
+          <MonthlyBills
+            monthlyBills={monthlyBills}
+            onOpenMonth={openMonth}
+          />
+        )}
+
+        {page === "month" && selectedMonth && (
+          <MonthDetail
+            monthKey={selectedMonth}
+            expenses={selectedExpenses}
+            onBack={backToMonths}
+            onEdit={setEditing}
+            onDelete={remove}
           />
         )}
 
@@ -667,43 +807,207 @@ function Nav({ active, onClick, icon, children }) {
   );
 }
 
+function MonthCard({ bill, onOpen }) {
+  return (
+    <button
+      type="button"
+      className="monthly-expense-row"
+      onClick={() => onOpen(bill.key)}
+      aria-label={`Open ${bill.label} bill`}
+    >
+      <div className="monthly-expense-info">
+        <span className="monthly-expense-dot" />
+        <div>
+          <b>{bill.monthName}</b>
+          <span className="month-card-year">{bill.year}</span>
+          <span className="month-card-count">
+            {bill.count} expense{bill.count === 1 ? "" : "s"}
+          </span>
+        </div>
+      </div>
+
+      <div className="month-card-total">
+        <small>Total</small>
+        <strong>{money(bill.total)}</strong>
+      </div>
+
+      <ChevronRight size={16} className="month-card-arrow" />
+    </button>
+  );
+}
+
+function MonthlyBills({ monthlyBills, onOpenMonth }) {
+  return (
+    <section className="content">
+      <div className="panel monthly-expenses-panel monthly-page-panel">
+        <div className="panel-head">
+          <div>
+            <h2>All months</h2>
+            <p>
+              {monthlyBills.length} monthly bill{monthlyBills.length === 1 ? "" : "s"} • Select a
+              month to see its expenses
+            </p>
+          </div>
+          <CalendarDays size={19} className="monthly-expenses-icon" />
+        </div>
+
+        {monthlyBills.length ? (
+          <div className="monthly-expenses-list">
+            {monthlyBills.map((bill) => (
+              <MonthCard key={bill.key} bill={bill} onOpen={onOpenMonth} />
+            ))}
+          </div>
+        ) : (
+          <div className="monthly-expenses-empty">
+            No monthly bills to show yet. Add an expense to get started.
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MonthDetail({ monthKey, expenses, onBack, onEdit, onDelete }) {
+  const total = expenses.reduce(
+    (sum, expense) => sum + Number(expense.amount || 0),
+    0
+  );
+
+  return (
+    <section className="content">
+      <button type="button" className="back-btn" onClick={onBack}>
+        <ArrowLeft size={16} />
+        Back to Monthly Bills
+      </button>
+
+      <div className="month-summary-card">
+        <div>
+          <span className="hero-label">{getMonthLabel(monthKey).toUpperCase()}</span>
+          <div className="month-summary-total">{money(total)}</div>
+          <p>Total expenses for this month</p>
+        </div>
+
+        <div className="month-summary-count">
+          <b>{expenses.length}</b>
+          <span>record{expenses.length === 1 ? "" : "s"}</span>
+        </div>
+      </div>
+
+      <div className="panel month-detail-panel">
+        <div className="panel-head">
+          <div>
+            <h2>{getMonthLabel(monthKey)} expenses</h2>
+            <p>Newest first</p>
+          </div>
+          <button type="button" className="secondary-btn" onClick={onBack}>
+            All Months
+          </button>
+        </div>
+
+        {expenses.length ? (
+          <div className="month-expense-list">
+            {expenses.map((expense) => (
+              <MonthExpenseItem
+                key={`${expense.type}-${expense.id}`}
+                expense={expense}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="empty">
+            <ReceiptText size={28} />
+            <b>No expenses for {getMonthLabel(monthKey)}</b>
+            <span>Add an expense with a date in this month, or go back to pick another month.</span>
+            <button type="button" className="dark-btn empty-add" onClick={onBack}>
+              <ArrowLeft size={16} /> Back to Monthly Bills
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MonthExpenseItem({ expense, onEdit, onDelete }) {
+  const icon =
+    expense.type === "travel" ? <TrainFront /> :
+    expense.type === "food" ? <Utensils /> :
+    expense.type === "snacks" ? <Coffee /> :
+    expense.type === "other" ? <CircleDollarSign /> :
+    <BedDouble />;
+
+  const category =
+    expense.type === "other"
+      ? expense.category || "Other"
+      : TYPE_LABELS[expense.type] || "Expense";
+
+  const description =
+    expense.type === "food"
+      ? expense.food || "Food"
+      : expense.type === "rent"
+        ? expense.description || "Room rent"
+        : expense.label || expense.description || expense.name || "Expense";
+
+  const details = [];
+  if (expense.type === "food" && expense.meal) details.push(expense.meal);
+  if (expense.type === "other") details.push("Other expense");
+  if (expense.type === "rent" && expense.month) {
+    details.push(`Rent month: ${getMonthLabel(expense.month)}`);
+  }
+
+  return (
+    <div className="month-expense-item">
+      <div className={`row-icon ${expense.type}`}>{icon}</div>
+
+      <div className="month-expense-main">
+        <div className="month-expense-top">
+          <b>{description}</b>
+          <span className={`category-chip ${expense.type}`}>{category}</span>
+        </div>
+        <span className="month-expense-meta">
+          <CalendarDays size={12} /> {formatDate(expense.date)}
+          {details.length ? ` • ${details.join(" • ")}` : ""}
+        </span>
+      </div>
+
+      <strong className="month-expense-amount">{money(expense.amount)}</strong>
+
+      <div className="month-expense-actions">
+        <button
+          type="button"
+          className="edit-action"
+          aria-label="Edit expense"
+          onClick={() => onEdit({ type: expense.type, item: expense })}
+        >
+          <Edit3 size={14} />
+          <span>Edit</span>
+        </button>
+        <button
+          type="button"
+          className="delete-action"
+          aria-label="Delete expense"
+          onClick={() => onDelete(expense.type, expense.id)}
+        >
+          <Trash2 size={14} />
+          <span>Delete</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({
   totals,
   all,
+  monthlyBills,
+  onOpenMonth,
   onAdd,
   onMoneyAdd,
   onView,
   onMoneyView
 }) {
-  const monthlyExpenses = useMemo(() => {
-    const grouped = new Map();
-
-    all.forEach((expense) => {
-      // Expense dates are stored as YYYY-MM-DD.
-      const monthKey = String(expense.date || "").slice(0, 7);
-      if (!/^\d{4}-\d{2}$/.test(monthKey)) return;
-
-      if (!grouped.has(monthKey)) {
-        const [year, month] = monthKey.split("-").map(Number);
-        grouped.set(monthKey, {
-          key: monthKey,
-          label: new Date(year, month - 1, 1).toLocaleDateString("en-IN", {
-            month: "long",
-            year: "numeric"
-          }),
-          total: 0,
-          count: 0
-        });
-      }
-
-      const month = grouped.get(monthKey);
-      month.total += Number(expense.amount || 0);
-      month.count += 1;
-    });
-
-    return [...grouped.values()].sort((a, b) => b.key.localeCompare(a.key));
-  }, [all]);
-
   return (
     <section className="content">
       <div className="hero-card">
@@ -722,25 +1026,16 @@ function Dashboard({
       <div className="panel monthly-expenses-panel">
         <div className="panel-head">
           <div>
-            <h2>Monthly expenses</h2>
-            <p>Your spending grouped by month</p>
+            <h2>Monthly bills</h2>
+            <p>Select a month to see its expenses</p>
           </div>
           <CalendarDays size={19} className="monthly-expenses-icon" />
         </div>
 
-        {monthlyExpenses.length ? (
+        {monthlyBills.length ? (
           <div className="monthly-expenses-list">
-            {monthlyExpenses.map((month) => (
-              <div className="monthly-expense-row" key={month.key}>
-                <div className="monthly-expense-info">
-                  <span className="monthly-expense-dot" />
-                  <div>
-                    <b>{month.label}</b>
-                    <span>{month.count} expense{month.count === 1 ? "" : "s"}</span>
-                  </div>
-                </div>
-                <strong>{money(month.total)}</strong>
-              </div>
+            {monthlyBills.map((bill) => (
+              <MonthCard key={bill.key} bill={bill} onOpen={onOpenMonth} />
             ))}
           </div>
         ) : (
@@ -985,7 +1280,7 @@ function Food({ data, totals, onAdd, onEdit, onDelete }) {
 
         {data.length ? (
           [...data]
-            .sort((a, b) => b.date.localeCompare(a.date))
+            .sort((a, b) => String(b.date).localeCompare(String(a.date)))
             .map((x) => (
               <ExpenseRow
                 key={x.id}
@@ -1141,7 +1436,11 @@ function MoneyPage({ transactions, people, totals, onAdd, onEdit, onDelete }) {
 
         {transactions.length ? (
           [...transactions]
-            .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)
+            .sort(
+              (a, b) =>
+                String(b.date).localeCompare(String(a.date)) ||
+                Number(b.id || 0) - Number(a.id || 0)
+            )
             .map((transaction) => (
               <MoneyTransactionRow
                 key={transaction.id}
