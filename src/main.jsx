@@ -521,8 +521,8 @@ const chipLabel = (v) => (v >= 1000 ? `₹${v / 1000}k` : `₹${v}`);
 
 function mealByTime() {
   const hour = new Date().getHours();
-  if (hour < 11) return "Breakfast";
-  if (hour < 16) return "Lunch";
+  if (hour >= 6 && hour < 11) return "Breakfast";
+  if (hour >= 11 && hour < 16) return "Lunch";
   return "Dinner";
 }
 
@@ -992,18 +992,31 @@ function App() {
     flash(t("saved"));
   }
 
-  function saveMultipleExpenses(type, items, keepOpen = false) {
+  function saveSingleFoodExpense(type, combinedItem, keepOpen = false) {
     setData((current) => {
       const arr = [...current[type]];
-      items.forEach((item) => {
-        const index = arr.findIndex((x) => x.id === item.id);
-        if (index >= 0) arr[index] = item;
-        else arr.push({ ...item, id: Date.now() + Math.random() });
-      });
+      const index = arr.findIndex((x) => x.id === combinedItem.id);
+
+      if (index >= 0) arr[index] = combinedItem;
+      else arr.push({ ...combinedItem, id: Date.now() });
+
       return { ...current, [type]: arr };
     });
 
     setLastType(type);
+
+    if (!combinedItem.id) {
+      const { id, ...rest } = combinedItem;
+      const remembered = { type, item: rest };
+      setLastExpense(remembered);
+      try {
+        localStorage.setItem(LAST_EXPENSE_KEY, JSON.stringify(remembered));
+        localStorage.setItem(LAST_TYPE_KEY, type);
+      } catch {
+        /* ignore */
+      }
+    }
+
     if (!keepOpen) setEditing(null);
     flash(t("saved"));
   }
@@ -1296,7 +1309,7 @@ function App() {
             type={editing.type}
             onClose={() => setEditing(null)}
             onSave={saveExpense}
-            onSaveMultiple={saveMultipleExpenses}
+            onSaveSingleFood={saveSingleFoodExpense}
           />
         )}
 
@@ -2697,7 +2710,7 @@ function MoneyTransactionRow({ transaction, transactions, compact = false, onEdi
    Modals
    ========================================================= */
 
-function ExpenseModal({ initial, type, onClose, onSave, onSaveMultiple }) {
+function ExpenseModal({ initial, type, onClose, onSave, onSaveSingleFood }) {
   const t = useT();
   const isEditing = Boolean(initial && initial.id);
 
@@ -2761,14 +2774,22 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveMultiple }) {
   function save(again) {
     if (kind === "food" && !isEditing) {
       if (selectedFoodItems.length === 0) return;
-      const records = selectedFoodItems.map((item) => ({
-        id: Date.now() + Math.random(),
+      const combinedFoodName = selectedFoodItems.map((i) => i.name).join(", ");
+      const totalFoodAmount = selectedFoodItems.reduce(
+        (sum, i) => sum + (Number(i.amount) || 0),
+        0
+      );
+      if (totalFoodAmount <= 0) return;
+
+      const combinedItem = {
+        id: Date.now(),
         date,
         meal,
-        food: item.name,
-        amount: Number(item.amount) || 0
-      }));
-      onSaveMultiple("food", records, again);
+        food: combinedFoodName,
+        amount: totalFoodAmount
+      };
+
+      onSaveSingleFood("food", combinedItem, again);
       if (again) {
         setSelectedFoodItems([]);
       }
