@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowDownLeft,
@@ -27,8 +27,19 @@ import {
 import "./styles.css";
 
 const KEY = "roomlife-expenses-v1";
+const LAST_TYPE_KEY = "roomlife-last-type";
 
-const today = () => new Date().toISOString().slice(0, 10);
+/* Local date (fixes the UTC issue: before 5:30 AM IST, toISOString gives yesterday) */
+function dateKey(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() - offsetDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+const today = () => dateKey(0);
 const money = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 
 const starter = {
@@ -57,6 +68,15 @@ function loadData() {
     };
   } catch {
     return starter;
+  }
+}
+
+function loadLastType() {
+  try {
+    const t = localStorage.getItem(LAST_TYPE_KEY);
+    return ["travel", "food", "snacks", "rent", "other"].includes(t) ? t : "travel";
+  } catch {
+    return "travel";
   }
 }
 
@@ -178,19 +198,106 @@ const TYPE_LABELS = {
   other: "Other"
 };
 
+/* ---------- Quick-add helpers ---------- */
+
+const SUGGESTIONS = {
+  travel: ["Bus", "Auto", "Train", "Cab", "Metro"],
+  food: ["Idly", "Dosa", "Meals", "Biriyani", "Tiffin"],
+  snacks: ["Tea", "Coffee", "Biscuit", "Juice", "Samosa"],
+  other: ["Soap", "Detergent", "Toothpaste", "Hanger"]
+};
+
+const QUICK_AMOUNTS = [10, 20, 50, 100, 200, 500];
+
+function mealByTime() {
+  const hour = new Date().getHours();
+  if (hour < 11) return "Breakfast";
+  if (hour < 16) return "Lunch";
+  return "Dinner";
+}
+
 function App() {
   const [data, setData] = useState(loadData);
   const [page, setPage] = useState("dashboard");
   const [selectedMonth, setSelectedMonth] = useState(null);
+  const [depth, setDepth] = useState(0);
   const [editing, setEditing] = useState(null);
   const [moneyEditing, setMoneyEditing] = useState(null);
+  const [lastType, setLastType] = useState(loadLastType);
   const [dataMenu, setDataMenu] = useState(false);
   const [toast, setToast] = useState("");
-  const fileInputRef = React.useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify(data));
   }, [data]);
+
+  /* ---------- Navigation with real back support ---------- */
+
+  useEffect(() => {
+    const state = window.history.state;
+
+    if (state && typeof state.idx === "number" && state.page) {
+      setPage(state.page);
+      setSelectedMonth(state.month || null);
+      setDepth(state.idx);
+    } else {
+      window.history.replaceState({ page: "dashboard", month: null, idx: 0 }, "");
+    }
+
+    function onPop(event) {
+      const s = event.state;
+
+      if (s && s.page) {
+        setPage(s.page);
+        setSelectedMonth(s.month || null);
+        setDepth(s.idx || 0);
+      } else {
+        setPage("dashboard");
+        setSelectedMonth(null);
+        setDepth(0);
+      }
+
+      setDataMenu(false);
+      setEditing(null);
+      setMoneyEditing(null);
+      window.scrollTo({ top: 0 });
+    }
+
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  function go(nextPage, month = null) {
+    setDataMenu(false);
+    window.scrollTo({ top: 0 });
+
+    if (nextPage === page && month === selectedMonth) return;
+
+    const idx = depth + 1;
+    window.history.pushState({ page: nextPage, month, idx }, "");
+    setPage(nextPage);
+    setSelectedMonth(month);
+    setDepth(idx);
+  }
+
+  function goBack() {
+    if (depth > 0) window.history.back();
+  }
+
+  function navigate(nextPage) {
+    go(nextPage, null);
+  }
+
+  function openMonth(monthKey) {
+    go("month", monthKey);
+  }
+
+  function backToMonths() {
+    go("months", null);
+  }
+
+  /* ---------- Totals ---------- */
 
   const totals = useMemo(() => {
     const sum = (items) =>
@@ -291,7 +398,7 @@ function App() {
     });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    const stamp = new Date().toISOString().slice(0, 10);
+    const stamp = today();
 
     link.href = url;
     link.download = `roomlife-expense-backup-${stamp}.json`;
@@ -380,7 +487,22 @@ function App() {
     reader.readAsText(file);
   }
 
-  function saveExpense(type, item) {
+  /* ---------- Quick add ---------- */
+
+  function openAddExpense(type) {
+    const chosen =
+      type || (page === "food" ? "food" : lastType);
+    setEditing({ type: chosen, item: null });
+  }
+
+  function openAddMoney(person) {
+    setMoneyEditing({
+      type: "given",
+      item: person ? { person } : null
+    });
+  }
+
+  function saveExpense(type, item, keepOpen = false) {
     setData((current) => {
       const arr = [...current[type]];
       const index = arr.findIndex((x) => x.id === item.id);
@@ -391,7 +513,14 @@ function App() {
       return { ...current, [type]: arr };
     });
 
-    setEditing(null);
+    setLastType(type);
+    try {
+      localStorage.setItem(LAST_TYPE_KEY, type);
+    } catch {
+      /* ignore */
+    }
+
+    if (!keepOpen) setEditing(null);
     flash(`${i18n(type)} saved`);
   }
 
@@ -402,11 +531,7 @@ function App() {
     if (!person || amount <= 0) return;
 
     if (item.type === "returned") {
-      const currentBalance = getPersonBalance(
-        data.money,
-        person,
-        item.id
-      );
+      const currentBalance = getPersonBalance(data.money, person, item.id);
 
       if (amount > currentBalance) {
         flash(`Return cannot exceed ${money(currentBalance)}`);
@@ -477,8 +602,8 @@ function App() {
       other: [],
       money: []
     });
-    setSelectedMonth(null);
-    if (page === "month") setPage("months");
+
+    if (page === "month") go("months", null);
 
     flash("All data deleted");
   }
@@ -489,25 +614,6 @@ function App() {
     if (type === "snacks") return "Snack expense";
     if (type === "other") return "Other expense";
     return "Travel expense";
-  }
-
-  function navigate(nextPage) {
-    setSelectedMonth(null);
-    setPage(nextPage);
-    setDataMenu(false);
-    window.scrollTo({ top: 0 });
-  }
-
-  function openMonth(monthKey) {
-    setSelectedMonth(monthKey);
-    setPage("month");
-    window.scrollTo({ top: 0 });
-  }
-
-  function backToMonths() {
-    setSelectedMonth(null);
-    setPage("months");
-    window.scrollTo({ top: 0 });
   }
 
   const heading = {
@@ -551,6 +657,9 @@ function App() {
     ["money", "Money", <Users key="u" />]
   ];
 
+  const modalOpen = Boolean(editing || moneyEditing);
+  const isMoneyPage = page === "money";
+
   return (
     <div className="app">
       <header className="topbar">
@@ -584,19 +693,13 @@ function App() {
           </nav>
 
           <div className="topbar-actions">
-            {page === "money" ? (
-              <button
-                className="btn btn-primary"
-                onClick={() => setMoneyEditing({ type: "given", item: null })}
-              >
+            {isMoneyPage ? (
+              <button className="btn btn-primary" onClick={() => openAddMoney()}>
                 <Plus size={16} />
                 <span className="btn-text">Add money</span>
               </button>
             ) : (
-              <button
-                className="btn btn-primary"
-                onClick={() => setEditing({ type: "travel", item: null })}
-              >
+              <button className="btn btn-primary" onClick={() => openAddExpense()}>
                 <Plus size={16} />
                 <span className="btn-text">Add expense</span>
               </button>
@@ -655,17 +758,31 @@ function App() {
 
       <main>
         <div className="page-head">
-          {page === "month" ? (
-            <div className="breadcrumb">
-              <button type="button" onClick={backToMonths}>
-                Monthly Bills
-              </button>
-              <ChevronRight size={14} />
-              <span>{getMonthLabel(selectedMonth)}</span>
-            </div>
-          ) : (
-            <div className="eyebrow">{heading.eyebrow}</div>
-          )}
+          <div className="page-top">
+            <button
+              type="button"
+              className="back-btn"
+              onClick={goBack}
+              disabled={depth === 0}
+              aria-label="Go back"
+            >
+              <ArrowLeft size={16} />
+              <span>Back</span>
+            </button>
+
+            {page === "month" ? (
+              <div className="breadcrumb">
+                <button type="button" onClick={backToMonths}>
+                  Monthly Bills
+                </button>
+                <ChevronRight size={14} />
+                <span>{getMonthLabel(selectedMonth)}</span>
+              </div>
+            ) : (
+              <div className="eyebrow">{heading.eyebrow}</div>
+            )}
+          </div>
+
           <h1>{heading.title}</h1>
           <p>{heading.sub}</p>
         </div>
@@ -678,7 +795,7 @@ function App() {
             onOpenMonth={openMonth}
             onViewMonths={() => navigate("months")}
             onAdd={setEditing}
-            onMoneyAdd={() => setMoneyEditing({ type: "given", item: null })}
+            onMoneyAdd={() => openAddMoney()}
             onView={() => navigate("expenses")}
             onMoneyView={() => navigate("money")}
           />
@@ -717,12 +834,7 @@ function App() {
             transactions={data.money}
             people={people}
             totals={totals}
-            onAdd={(options = {}) =>
-              setMoneyEditing({
-                type: "given",
-                item: options.person ? { person: options.person } : null
-              })
-            }
+            onAdd={(options = {}) => openAddMoney(options.person)}
             onEdit={(item) => setMoneyEditing({ type: item.type, item })}
             onDelete={removeMoney}
           />
@@ -730,6 +842,18 @@ function App() {
 
         <footer>RoomLife • Your data stays on this device</footer>
       </main>
+
+      {!modalOpen && (
+        <button
+          type="button"
+          className="fab"
+          onClick={() => (isMoneyPage ? openAddMoney() : openAddExpense())}
+          aria-label={isMoneyPage ? "Add money" : "Add expense"}
+        >
+          <Plus size={22} />
+          <span className="fab-text">{isMoneyPage ? "Add money" : "Add expense"}</span>
+        </button>
+      )}
 
       {editing && (
         <ExpenseModal
@@ -767,10 +891,12 @@ function getPersonBalance(transactions, person, excludeId = null) {
     if (transaction.id === excludeId) return balance;
     if (transaction.person?.trim().toLowerCase() !== normalized) return balance;
 
-    return balance +
+    return (
+      balance +
       (transaction.type === "given"
         ? Number(transaction.amount || 0)
-        : -Number(transaction.amount || 0));
+        : -Number(transaction.amount || 0))
+    );
   }, 0);
 }
 
@@ -1055,6 +1181,28 @@ function Dashboard({
 
   return (
     <section className="content">
+      {/* Quick add sits at the very top so adding is one tap away */}
+      <div className="quick-strip">
+        <span className="quick-strip-title">Quick add</span>
+        <div className="quick-strip-list">
+          <button type="button" onClick={() => onAdd({ type: "travel", item: null })}>
+            <TrainFront size={16} /> Travel
+          </button>
+          <button type="button" onClick={() => onAdd({ type: "food", item: null })}>
+            <Utensils size={16} /> Food
+          </button>
+          <button type="button" onClick={() => onAdd({ type: "snacks", item: null })}>
+            <Coffee size={16} /> Snacks
+          </button>
+          <button type="button" onClick={() => onAdd({ type: "rent", item: null })}>
+            <BedDouble size={16} /> Rent
+          </button>
+          <button type="button" onClick={() => onAdd({ type: "other", item: null })}>
+            <CircleDollarSign size={16} /> Other
+          </button>
+        </div>
+      </div>
+
       <div className="kpi-grid three">
         <div className="kpi accent">
           <span className="kpi-label">Total spent</span>
@@ -1075,6 +1223,24 @@ function Dashboard({
           <strong className="kpi-value">{money(totals.moneyOutstanding)}</strong>
           <span className="kpi-sub">Still to be returned</span>
         </div>
+      </div>
+
+      <div className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>Recent expenses</h2>
+            <p>Your latest activity</p>
+          </div>
+          <button className="link-btn" onClick={onView}>View all</button>
+        </div>
+
+        {all.length ? (
+          all.slice(0, 5).map((x) => (
+            <ExpenseRow key={`${x.type}-${x.id}`} x={x} />
+          ))
+        ) : (
+          <Empty />
+        )}
       </div>
 
       <div className="panel">
@@ -1166,8 +1332,8 @@ function Dashboard({
         <div className="panel">
           <div className="panel-head">
             <div>
-              <h2>Quick add</h2>
-              <p>Record an expense in seconds</p>
+              <h2>Add by category</h2>
+              <p>Pick a category and enter the amount</p>
             </div>
           </div>
 
@@ -1228,27 +1394,9 @@ function Dashboard({
             View history
           </button>
           <button className="btn btn-primary" onClick={onMoneyAdd}>
-            <Plus size={15} /> Add money
+            <Plus size={15} /> <span className="btn-text-keep">Add money</span>
           </button>
         </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel-head">
-          <div>
-            <h2>Recent expenses</h2>
-            <p>Your latest activity</p>
-          </div>
-          <button className="link-btn" onClick={onView}>View all</button>
-        </div>
-
-        {all.length ? (
-          all.slice(0, 5).map((x) => (
-            <ExpenseRow key={`${x.type}-${x.id}`} x={x} />
-          ))
-        ) : (
-          <Empty />
-        )}
       </div>
     </section>
   );
@@ -1469,7 +1617,7 @@ function MoneyPage({ transactions, people, totals, onAdd, onEdit, onDelete }) {
             <Users size={26} />
             <b>No money records yet</b>
             <span>Add a transaction to start tracking money given and returned.</span>
-            <button className="btn btn-primary empty-add" onClick={onAdd}>
+            <button className="btn btn-primary empty-add" onClick={() => onAdd()}>
               <Plus size={15} /> Add first transaction
             </button>
           </div>
@@ -1639,120 +1787,181 @@ function MoneyTransactionRow({
 }
 
 function ExpenseModal({ initial, type, onClose, onSave }) {
+  const isEditing = Boolean(initial && initial.id);
+
   const [kind, setKind] = useState(type);
   const [date, setDate] = useState(initial?.date || today());
   const [amount, setAmount] = useState(initial?.amount ?? "");
-  const [description, setDescription] = useState(initial?.description || "");
-  const [meal, setMeal] = useState(initial?.meal || "Breakfast");
-  const [food, setFood] = useState(initial?.food || "");
-  const [name, setName] = useState(initial?.name || "");
+  const [meal, setMeal] = useState(initial?.meal || mealByTime());
+  const [title, setTitle] = useState(
+    type === "rent" ? "" : initial?.description || initial?.food || initial?.name || ""
+  );
   const [month, setMonth] = useState(initial?.month || "");
-  const [rentDesc, setRentDesc] = useState(initial?.description || "");
+  const [rentDesc, setRentDesc] = useState(
+    type === "rent" ? initial?.description || "" : ""
+  );
   const [otherCategory, setOtherCategory] = useState(
     initial?.category || "Miscellaneous"
   );
 
-  function submit(event) {
-    event.preventDefault();
+  const formRef = useRef(null);
+  const amountRef = useRef(null);
 
-    if (!amount || Number(amount) <= 0) return;
+  useEffect(() => {
+    function onKey(event) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function save(again) {
+    const numeric = Number(amount);
+    if (!numeric || numeric <= 0) return;
 
     const common = {
       id: initial?.id,
       date,
-      amount: Number(amount)
+      amount: numeric
     };
+    const text = title.trim();
 
     if (kind === "travel") {
-      onSave("travel", {
-        ...common,
-        description: description.trim() || "Travel"
-      });
+      onSave("travel", { ...common, description: text || "Travel" }, again);
     }
 
     if (kind === "food") {
-      onSave("food", {
-        ...common,
-        meal,
-        food: food.trim() || "Food"
-      });
+      onSave("food", { ...common, meal, food: text || "Food" }, again);
     }
 
     if (kind === "snacks") {
-      onSave("snacks", {
-        ...common,
-        name: name.trim() || "Snack"
-      });
+      onSave("snacks", { ...common, name: text || "Snack" }, again);
     }
 
     if (kind === "rent") {
-      onSave("rent", {
-        ...common,
-        month: month || date.slice(0, 7),
-        description: rentDesc.trim() || "Room rent"
-      });
+      onSave(
+        "rent",
+        {
+          ...common,
+          month: month || date.slice(0, 7),
+          description: rentDesc.trim() || "Room rent"
+        },
+        again
+      );
     }
 
     if (kind === "other") {
-      onSave("other", {
-        ...common,
-        category: otherCategory,
-        name: name.trim() || "Other expense"
-      });
+      onSave(
+        "other",
+        {
+          ...common,
+          category: otherCategory,
+          name: text || "Other expense"
+        },
+        again
+      );
+    }
+
+    if (again) {
+      setAmount("");
+      setTitle("");
+      setRentDesc("");
+      if (kind === "food") setMeal(mealByTime());
+      window.setTimeout(() => amountRef.current?.focus(), 0);
     }
   }
 
+  function submit(event) {
+    event.preventDefault();
+    save(false);
+  }
+
+  function saveAndAddAnother() {
+    if (formRef.current && !formRef.current.reportValidity()) return;
+    save(true);
+  }
+
+  function changeKind(next) {
+    setKind(next);
+    setTitle("");
+    if (next === "food") setMeal(mealByTime());
+  }
+
+  const suggestions = SUGGESTIONS[kind] || [];
+
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <div className="modal-head">
           <div>
-            <span className="eyebrow">{initial ? "EDIT EXPENSE" : "NEW EXPENSE"}</span>
-            <h2>{initial ? "Update expense" : "Add expense"}</h2>
+            <span className="eyebrow">{isEditing ? "EDIT EXPENSE" : "NEW EXPENSE"}</span>
+            <h2>{isEditing ? "Update expense" : "Add expense"}</h2>
           </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close">
             <X />
           </button>
         </div>
 
-        <div className="type-tabs">
-          {[
-            ["travel", "Travel", <TrainFront key="travel" />],
-            ["food", "Food", <Utensils key="food" />],
-            ["snacks", "Snacks", <Coffee key="snacks" />],
-            ["rent", "Rent", <BedDouble key="rent" />],
-            ["other", "Other", <CircleDollarSign key="other" />]
-          ].map(([key, label, icon]) => (
-            <button
-              type="button"
-              key={key}
-              className={kind === key ? "selected" : ""}
-              onClick={() => setKind(key)}
-            >
-              {icon}
-              <span>{label}</span>
-            </button>
-          ))}
-        </div>
+        {!isEditing && (
+          <div className="type-tabs">
+            {[
+              ["travel", "Travel", <TrainFront key="travel" />],
+              ["food", "Food", <Utensils key="food" />],
+              ["snacks", "Snacks", <Coffee key="snacks" />],
+              ["rent", "Rent", <BedDouble key="rent" />],
+              ["other", "Other", <CircleDollarSign key="other" />]
+            ].map(([key, label, icon]) => (
+              <button
+                type="button"
+                key={key}
+                className={kind === key ? "selected" : ""}
+                onClick={() => changeKind(key)}
+              >
+                {icon}
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
-        <form onSubmit={submit}>
+        <form ref={formRef} onSubmit={submit}>
           <label>
-            Date
+            Amount
             <input
-              type="date"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
+              ref={amountRef}
+              className="amount-input"
+              type="number"
+              inputMode="decimal"
+              min="1"
+              step="0.01"
+              placeholder="₹ 0"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              autoFocus
               required
             />
           </label>
+
+          <div className="chips">
+            {QUICK_AMOUNTS.map((value) => (
+              <button
+                type="button"
+                key={value}
+                className={`chip ${Number(amount) === value ? "on" : ""}`}
+                onClick={() => setAmount(String(value))}
+              >
+                ₹{value}
+              </button>
+            ))}
+          </div>
 
           {kind === "travel" && (
             <label>
               Travel description
               <input
                 placeholder="e.g. Bus, Train, Auto, Cab"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
               />
             </label>
           )}
@@ -1771,8 +1980,8 @@ function ExpenseModal({ initial, type, onClose, onSave }) {
                 What did you eat?
                 <input
                   placeholder="e.g. Idly, Meals, Dosa"
-                  value={food}
-                  onChange={(event) => setFood(event.target.value)}
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
                 />
               </label>
             </>
@@ -1783,10 +1992,52 @@ function ExpenseModal({ initial, type, onClose, onSave }) {
               Snack name
               <input
                 placeholder="e.g. Tea, Biscuit, Juice"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
               />
             </label>
+          )}
+
+          {kind === "other" && (
+            <>
+              <label>
+                Expense category
+                <select
+                  value={otherCategory}
+                  onChange={(event) => setOtherCategory(event.target.value)}
+                >
+                  <option>Personal Care</option>
+                  <option>Cleaning</option>
+                  <option>Clothes Washing</option>
+                  <option>Household Item</option>
+                  <option>Bathroom Item</option>
+                  <option>Miscellaneous</option>
+                </select>
+              </label>
+              <label>
+                Expense name
+                <input
+                  placeholder="e.g. Soap, Toothpaste, Hanger, Detergent"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                />
+              </label>
+            </>
+          )}
+
+          {suggestions.length > 0 && (
+            <div className="chips">
+              {suggestions.map((item) => (
+                <button
+                  type="button"
+                  key={item}
+                  className={`chip ${title === item ? "on" : ""}`}
+                  onClick={() => setTitle(item)}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
           )}
 
           {kind === "rent" && (
@@ -1810,51 +2061,50 @@ function ExpenseModal({ initial, type, onClose, onSave }) {
             </>
           )}
 
-          {kind === "other" && (
-            <>
-              <label>
-                Expense category
-                <select
-                  value={otherCategory}
-                  onChange={(event) => setOtherCategory(event.target.value)}
-                >
-                  <option>Personal Care</option>
-                  <option>Cleaning</option>
-                  <option>Clothes Washing</option>
-                  <option>Household Item</option>
-                  <option>Bathroom Item</option>
-                  <option>Miscellaneous</option>
-                </select>
-              </label>
-              <label>
-                Expense name
-                <input
-                  placeholder="e.g. Soap, Toothpaste, Hanger, Detergent"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                />
-              </label>
-            </>
-          )}
-
           <label>
-            Amount
+            Date
             <input
-              className="amount-input"
-              type="number"
-              min="1"
-              step="0.01"
-              placeholder="₹ 0"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              type="date"
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
               required
             />
           </label>
 
-          <button className="save-btn" type="submit">
-            <Check size={18} />
-            {initial ? "Update expense" : "Save expense"}
-          </button>
+          <div className="chips">
+            <button
+              type="button"
+              className={`chip ${date === dateKey(0) ? "on" : ""}`}
+              onClick={() => setDate(dateKey(0))}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              className={`chip ${date === dateKey(1) ? "on" : ""}`}
+              onClick={() => setDate(dateKey(1))}
+            >
+              Yesterday
+            </button>
+          </div>
+
+          <div className="save-row">
+            <button className="save-btn" type="submit">
+              <Check size={18} />
+              {isEditing ? "Update expense" : "Save"}
+            </button>
+
+            {!isEditing && (
+              <button
+                className="save-btn secondary"
+                type="button"
+                onClick={saveAndAddAnother}
+              >
+                <Plus size={18} />
+                Save & add another
+              </button>
+            )}
+          </div>
         </form>
       </div>
     </div>
@@ -1868,9 +2118,19 @@ function MoneyModal({ initial, type, transactions, onClose, onSave }) {
   const [amount, setAmount] = useState(initial?.amount ?? "");
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    function onKey(event) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const currentBalance = person.trim()
     ? getPersonBalance(transactions, person, initial?.id || null)
     : 0;
+
+  const isEditing = Boolean(initial && initial.id);
 
   function submit(event) {
     event.preventDefault();
@@ -1902,12 +2162,12 @@ function MoneyModal({ initial, type, transactions, onClose, onSave }) {
   }
 
   return (
-    <div className="modal-backdrop">
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal money-modal">
         <div className="modal-head">
           <div>
-            <span className="eyebrow">{initial ? "EDIT TRANSACTION" : "MONEY TRACKING"}</span>
-            <h2>{initial ? "Update transaction" : "Add money transaction"}</h2>
+            <span className="eyebrow">{isEditing ? "EDIT TRANSACTION" : "MONEY TRACKING"}</span>
+            <h2>{isEditing ? "Update transaction" : "Add money transaction"}</h2>
           </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close">
             <X />
@@ -1945,7 +2205,7 @@ function MoneyModal({ initial, type, transactions, onClose, onSave }) {
           <label>
             Person's name
             <input
-              autoFocus
+              autoFocus={!initial?.person}
               placeholder="e.g. Arun"
               value={person}
               onChange={(event) => {
@@ -1957,28 +2217,46 @@ function MoneyModal({ initial, type, transactions, onClose, onSave }) {
           </label>
 
           <label>
-            Date
-            <input
-              type="date"
-              value={date}
-              onChange={(event) => setDate(event.target.value)}
-              required
-            />
-          </label>
-
-          <label>
             Amount
             <input
               className="amount-input"
               type="number"
+              inputMode="decimal"
               min="1"
               step="0.01"
               placeholder="₹ 0"
+              autoFocus={Boolean(initial?.person)}
               value={amount}
               onChange={(event) => {
                 setAmount(event.target.value);
                 setError("");
               }}
+              required
+            />
+          </label>
+
+          <div className="chips">
+            {QUICK_AMOUNTS.map((value) => (
+              <button
+                type="button"
+                key={value}
+                className={`chip ${Number(amount) === value ? "on" : ""}`}
+                onClick={() => {
+                  setAmount(String(value));
+                  setError("");
+                }}
+              >
+                ₹{value}
+              </button>
+            ))}
+          </div>
+
+          <label>
+            Date
+            <input
+              type="date"
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
               required
             />
           </label>
@@ -1994,7 +2272,7 @@ function MoneyModal({ initial, type, transactions, onClose, onSave }) {
 
           <button className="save-btn" type="submit">
             <Check size={18} />
-            {initial ? "Update transaction" : "Save transaction"}
+            {isEditing ? "Update transaction" : "Save transaction"}
           </button>
         </form>
       </div>
