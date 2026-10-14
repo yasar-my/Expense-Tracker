@@ -7,13 +7,14 @@ import {
   BedDouble,
   CalendarDays,
   Check,
+  ChevronDown,
   ChevronRight,
   CircleDollarSign,
   Coffee,
+  Database,
   Edit3,
   History,
   LayoutDashboard,
-  Menu,
   Plus,
   ReceiptText,
   Trash2,
@@ -122,13 +123,6 @@ function getMonthName(monthKey) {
   });
 }
 
-function getMonthShort(monthKey) {
-  const { year, month } = getMonthParts(monthKey);
-  return new Date(year, month - 1, 1)
-    .toLocaleDateString("en-IN", { month: "short" })
-    .toUpperCase();
-}
-
 function getMonthLabel(monthKey) {
   const { year, month } = getMonthParts(monthKey);
   if (!year || !month) return "Unknown month";
@@ -151,7 +145,6 @@ function buildMonthlyBills(expenses) {
         key: monthKey,
         label: getMonthLabel(monthKey),
         monthName: getMonthName(monthKey),
-        monthShort: getMonthShort(monthKey),
         year,
         total: 0,
         count: 0
@@ -191,7 +184,7 @@ function App() {
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [editing, setEditing] = useState(null);
   const [moneyEditing, setMoneyEditing] = useState(null);
-  const [menu, setMenu] = useState(false);
+  const [dataMenu, setDataMenu] = useState(false);
   const [toast, setToast] = useState("");
   const fileInputRef = React.useRef(null);
 
@@ -307,12 +300,14 @@ function App() {
     link.remove();
     URL.revokeObjectURL(url);
 
+    setDataMenu(false);
     flash("Backup downloaded");
   }
 
   function handleBackupUpload(event) {
     const file = event.target.files?.[0];
     event.target.value = "";
+    setDataMenu(false);
 
     if (!file) return;
 
@@ -464,6 +459,8 @@ function App() {
   }
 
   function clearAll() {
+    setDataMenu(false);
+
     if (
       !window.confirm(
         "Are you sure you want to delete all expense and money data? This action cannot be undone."
@@ -495,14 +492,15 @@ function App() {
   }
 
   function navigate(nextPage) {
+    setSelectedMonth(null);
     setPage(nextPage);
-    setMenu(false);
+    setDataMenu(false);
+    window.scrollTo({ top: 0 });
   }
 
   function openMonth(monthKey) {
     setSelectedMonth(monthKey);
     setPage("month");
-    setMenu(false);
     window.scrollTo({ top: 0 });
   }
 
@@ -512,169 +510,165 @@ function App() {
     window.scrollTo({ top: 0 });
   }
 
-  const headerTitle =
-    page === "dashboard"
-      ? "Dashboard"
-      : page === "food"
-        ? "Food breakdown"
-        : page === "money"
-          ? "Money tracking"
-          : page === "months"
-            ? "Monthly bills"
-            : page === "month"
-              ? getMonthLabel(selectedMonth)
-              : "All expenses";
+  const heading = {
+    dashboard: {
+      eyebrow: "OVERVIEW",
+      title: "Dashboard",
+      sub: "A quick look at your spending."
+    },
+    months: {
+      eyebrow: "REPORTS",
+      title: "Monthly bills",
+      sub: "Pick a month to see every expense in it."
+    },
+    month: {
+      eyebrow: "MONTHLY BILL",
+      title: selectedMonth ? getMonthLabel(selectedMonth) : "Monthly bill",
+      sub: "All expenses recorded in this month."
+    },
+    expenses: {
+      eyebrow: "RECORDS",
+      title: "All expenses",
+      sub: "Every expense, newest first."
+    },
+    food: {
+      eyebrow: "CATEGORY",
+      title: "Food breakdown",
+      sub: "Meal-wise food spending."
+    },
+    money: {
+      eyebrow: "LEDGER",
+      title: "Money tracking",
+      sub: "Money given to you and what you have returned."
+    }
+  }[page];
 
-  const headerEyebrow =
-    page === "month"
-      ? "MONTHLY BILL"
-      : page === "months"
-        ? "REPORTS"
-        : page === "money"
-          ? "LEDGER"
-          : "OVERVIEW";
+  const tabs = [
+    ["dashboard", "Overview", <LayoutDashboard key="d" />],
+    ["months", "Months", <CalendarDays key="m" />],
+    ["expenses", "Expenses", <ReceiptText key="e" />],
+    ["food", "Food", <Utensils key="f" />],
+    ["money", "Money", <Users key="u" />]
+  ];
 
   return (
     <div className="app">
-      <aside className={`sidebar ${menu ? "open" : ""}`}>
-        <div className="brand">
-          <div className="brand-icon">
-            <WalletCards size={20} />
-          </div>
-
-          <div>
-            <b>RoomLife</b>
-            <span>Expense tracker</span>
-          </div>
-
+      <header className="topbar">
+        <div className="topbar-inner">
           <button
-            className="icon-btn close-menu"
-            onClick={() => setMenu(false)}
-            aria-label="Close menu"
-          >
-            <X />
-          </button>
-        </div>
-
-        <div className="nav-label">NAVIGATION</div>
-
-        <nav>
-          <Nav
-            active={page === "dashboard"}
+            type="button"
+            className="brand"
             onClick={() => navigate("dashboard")}
-            icon={<LayoutDashboard />}
+            aria-label="Go to dashboard"
           >
-            Dashboard
-          </Nav>
-
-          <Nav
-            active={page === "months" || page === "month"}
-            onClick={() => {
-              setSelectedMonth(null);
-              navigate("months");
-            }}
-            icon={<CalendarDays />}
-          >
-            Monthly Bills
-          </Nav>
-
-          <Nav
-            active={page === "expenses"}
-            onClick={() => navigate("expenses")}
-            icon={<ReceiptText />}
-          >
-            All Expenses
-          </Nav>
-
-          <Nav
-            active={page === "food"}
-            onClick={() => navigate("food")}
-            icon={<Utensils />}
-          >
-            Food Breakdown
-          </Nav>
-
-          <Nav
-            active={page === "money"}
-            onClick={() => navigate("money")}
-            icon={<Users />}
-          >
-            Money Given & Received
-          </Nav>
-        </nav>
-
-        <div className="sidebar-bottom">
-          <div className="storage">
-            <span className="dot" />
-            <span>Stored on this device</span>
-          </div>
-
-          <div className="backup-actions">
-            <button className="backup-btn" onClick={downloadBackup} type="button">
-              <ArrowDownLeft size={15} />
-              <span>Download backup</span>
-            </button>
-
-            <label className="backup-btn upload-btn">
-              <ArrowUpRight size={15} />
-              <span>Upload backup</span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/json,.json"
-                onChange={handleBackupUpload}
-                aria-label="Upload RoomLife backup"
-              />
-            </label>
-          </div>
-
-          <button className="danger-link" onClick={clearAll}>
-            <Trash2 size={16} />
-            Delete all data
+            <span className="brand-mark">
+              <WalletCards size={18} />
+            </span>
+            <span className="brand-name">RoomLife</span>
           </button>
-        </div>
-      </aside>
 
-      {menu && <div className="backdrop" onClick={() => setMenu(false)} />}
+          <nav className="tabs" aria-label="Main navigation">
+            {tabs.map(([key, label, icon]) => (
+              <button
+                key={key}
+                type="button"
+                className={`tab ${
+                  page === key || (key === "months" && page === "month") ? "active" : ""
+                }`}
+                onClick={() => navigate(key)}
+              >
+                {icon}
+                <span>{label}</span>
+              </button>
+            ))}
+          </nav>
+
+          <div className="topbar-actions">
+            {page === "money" ? (
+              <button
+                className="btn btn-primary"
+                onClick={() => setMoneyEditing({ type: "given", item: null })}
+              >
+                <Plus size={16} />
+                <span className="btn-text">Add money</span>
+              </button>
+            ) : (
+              <button
+                className="btn btn-primary"
+                onClick={() => setEditing({ type: "travel", item: null })}
+              >
+                <Plus size={16} />
+                <span className="btn-text">Add expense</span>
+              </button>
+            )}
+
+            <div className="data-menu-wrap">
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setDataMenu((open) => !open)}
+                aria-expanded={dataMenu}
+                aria-label="Data options"
+              >
+                <Database size={16} />
+                <span className="btn-text">Data</span>
+                <ChevronDown size={14} className="btn-text" />
+              </button>
+
+              {dataMenu && (
+                <>
+                  <div className="menu-backdrop" onClick={() => setDataMenu(false)} />
+                  <div className="data-menu">
+                    <div className="menu-note">
+                      <span className="dot" />
+                      Stored on this device
+                    </div>
+
+                    <button type="button" className="menu-item" onClick={downloadBackup}>
+                      <ArrowDownLeft size={15} />
+                      Download backup
+                    </button>
+
+                    <label className="menu-item">
+                      <ArrowUpRight size={15} />
+                      Upload backup
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="application/json,.json"
+                        onChange={handleBackupUpload}
+                        aria-label="Upload RoomLife backup"
+                      />
+                    </label>
+
+                    <button type="button" className="menu-item danger" onClick={clearAll}>
+                      <Trash2 size={15} />
+                      Delete all data
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
 
       <main>
-        <header>
-          <button
-            className="icon-btn mobile-menu"
-            onClick={() => setMenu(true)}
-            aria-label="Open menu"
-          >
-            <Menu />
-          </button>
-
-          <div>
-            <div className="eyebrow">{headerEyebrow}</div>
-            <h1>{headerTitle}</h1>
-          </div>
-
-          {page === "money" ? (
-            <button
-              className="add-main"
-              onClick={() => setMoneyEditing({ type: "given", item: null })}
-            >
-              <Plus size={18} />
-              <span>Add money</span>
-            </button>
+        <div className="page-head">
+          {page === "month" ? (
+            <div className="breadcrumb">
+              <button type="button" onClick={backToMonths}>
+                Monthly Bills
+              </button>
+              <ChevronRight size={14} />
+              <span>{getMonthLabel(selectedMonth)}</span>
+            </div>
           ) : (
-            <button
-              className="add-main"
-              onClick={() =>
-                setEditing({
-                  type: "travel",
-                  item: null
-                })
-              }
-            >
-              <Plus size={18} />
-              <span>Add expense</span>
-            </button>
+            <div className="eyebrow">{heading.eyebrow}</div>
           )}
-        </header>
+          <h1>{heading.title}</h1>
+          <p>{heading.sub}</p>
+        </div>
 
         {page === "dashboard" && (
           <Dashboard
@@ -682,20 +676,16 @@ function App() {
             all={all}
             monthlyBills={monthlyBills}
             onOpenMonth={openMonth}
+            onViewMonths={() => navigate("months")}
             onAdd={setEditing}
-            onMoneyAdd={() =>
-              setMoneyEditing({ type: "given", item: null })
-            }
-            onView={() => setPage("expenses")}
-            onMoneyView={() => setPage("money")}
+            onMoneyAdd={() => setMoneyEditing({ type: "given", item: null })}
+            onView={() => navigate("expenses")}
+            onMoneyView={() => navigate("money")}
           />
         )}
 
         {page === "months" && (
-          <MonthlyBills
-            monthlyBills={monthlyBills}
-            onOpenMonth={openMonth}
-          />
+          <MonthlyBills monthlyBills={monthlyBills} onOpenMonth={openMonth} />
         )}
 
         {page === "month" && selectedMonth && (
@@ -709,11 +699,7 @@ function App() {
         )}
 
         {page === "expenses" && (
-          <Expenses
-            all={all}
-            onEdit={setEditing}
-            onDelete={remove}
-          />
+          <Expenses all={all} onEdit={setEditing} onDelete={remove} />
         )}
 
         {page === "food" && (
@@ -766,7 +752,7 @@ function App() {
 
       {toast && (
         <div className="toast">
-          <Check size={17} />
+          <Check size={16} />
           {toast}
         </div>
       )}
@@ -813,16 +799,6 @@ function getPersonStats(transactions, person) {
   };
 }
 
-function Nav({ active, onClick, icon, children }) {
-  return (
-    <button className={`nav-item ${active ? "active" : ""}`} onClick={onClick}>
-      {icon}
-      <span>{children}</span>
-      <ChevronRight className="nav-arrow" />
-    </button>
-  );
-}
-
 function MonthCard({ bill, max, onOpen }) {
   const share = max > 0 ? Math.max(4, Math.round((bill.total / max) * 100)) : 0;
 
@@ -833,29 +809,24 @@ function MonthCard({ bill, max, onOpen }) {
       onClick={() => onOpen(bill.key)}
       aria-label={`Open ${bill.label} bill`}
     >
-      <div className="month-card-badge">
-        <b>{bill.monthShort}</b>
-        <span>{bill.year}</span>
+      <div className="mc-top">
+        <div>
+          <b className="mc-name">{bill.monthName}</b>
+          <span className="mc-year">{bill.year}</span>
+        </div>
+        <ChevronRight size={16} className="mc-arrow" />
       </div>
 
-      <div className="month-card-body">
-        <div className="month-card-title">
-          <b>{bill.monthName} {bill.year}</b>
-        </div>
-        <span className="month-card-count">
+      <div className="mc-total">{money(bill.total)}</div>
+
+      <div className="mc-foot">
+        <span>
           {bill.count} expense{bill.count === 1 ? "" : "s"}
         </span>
-        <div className="month-card-bar">
+        <div className="mc-bar">
           <i style={{ width: `${share}%` }} />
         </div>
       </div>
-
-      <div className="month-card-total">
-        <small>Total</small>
-        <strong>{money(bill.total)}</strong>
-      </div>
-
-      <ChevronRight size={16} className="month-card-arrow" />
     </button>
   );
 }
@@ -863,37 +834,52 @@ function MonthCard({ bill, max, onOpen }) {
 function MonthlyBills({ monthlyBills, onOpenMonth }) {
   const max = Math.max(0, ...monthlyBills.map((bill) => bill.total));
 
+  const years = useMemo(() => {
+    const map = new Map();
+
+    monthlyBills.forEach((bill) => {
+      if (!map.has(bill.year)) map.set(bill.year, { year: bill.year, total: 0, bills: [] });
+      const group = map.get(bill.year);
+      group.total += bill.total;
+      group.bills.push(bill);
+    });
+
+    return [...map.values()].sort((a, b) => b.year - a.year);
+  }, [monthlyBills]);
+
+  if (!monthlyBills.length) {
+    return (
+      <section className="content">
+        <div className="panel">
+          <div className="empty">
+            <CalendarDays size={26} />
+            <b>No monthly bills yet</b>
+            <span>Add an expense and its month will appear here.</span>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="content">
-      <div className="panel monthly-expenses-panel monthly-page-panel">
-        <div className="panel-head">
-          <div>
-            <h2>All months</h2>
-            <p>
-              {monthlyBills.length} monthly bill{monthlyBills.length === 1 ? "" : "s"} • Select a
-              month to see its expenses
-            </p>
+      {years.map((group) => (
+        <div className="year-group" key={group.year}>
+          <div className="year-head">
+            <h2>{group.year}</h2>
+            <span>
+              {group.bills.length} month{group.bills.length === 1 ? "" : "s"} •{" "}
+              {money(group.total)}
+            </span>
           </div>
-          <CalendarDays size={19} className="monthly-expenses-icon" />
-        </div>
 
-        {monthlyBills.length ? (
-          <div className="month-card-list">
-            {monthlyBills.map((bill) => (
-              <MonthCard
-                key={bill.key}
-                bill={bill}
-                max={max}
-                onOpen={onOpenMonth}
-              />
+          <div className="month-grid">
+            {group.bills.map((bill) => (
+              <MonthCard key={bill.key} bill={bill} max={max} onOpen={onOpenMonth} />
             ))}
           </div>
-        ) : (
-          <div className="monthly-expenses-empty">
-            No monthly bills to show yet. Add an expense to get started.
-          </div>
-        )}
-      </div>
+        </div>
+      ))}
     </section>
   );
 }
@@ -903,34 +889,39 @@ function MonthDetail({ monthKey, expenses, onBack, onEdit, onDelete }) {
     (sum, expense) => sum + Number(expense.amount || 0),
     0
   );
+  const highest = expenses.reduce(
+    (best, expense) => Math.max(best, Number(expense.amount || 0)),
+    0
+  );
 
   return (
     <section className="content">
-      <button type="button" className="back-btn" onClick={onBack}>
-        <ArrowLeft size={16} />
-        Back to Monthly Bills
-      </button>
-
-      <div className="month-summary-card">
-        <div>
-          <span className="hero-label">{getMonthLabel(monthKey).toUpperCase()}</span>
-          <div className="month-summary-total">{money(total)}</div>
-          <p>Total expenses for this month</p>
+      <div className="kpi-grid three">
+        <div className="kpi accent">
+          <span className="kpi-label">Total expenses</span>
+          <strong className="kpi-value">{money(total)}</strong>
+          <span className="kpi-sub">{getMonthLabel(monthKey)}</span>
         </div>
-
-        <div className="month-summary-count">
-          <b>{expenses.length}</b>
-          <span>record{expenses.length === 1 ? "" : "s"}</span>
+        <div className="kpi">
+          <span className="kpi-label">Records</span>
+          <strong className="kpi-value">{expenses.length}</strong>
+          <span className="kpi-sub">expense{expenses.length === 1 ? "" : "s"} this month</span>
+        </div>
+        <div className="kpi">
+          <span className="kpi-label">Highest expense</span>
+          <strong className="kpi-value">{money(highest)}</strong>
+          <span className="kpi-sub">single largest record</span>
         </div>
       </div>
 
-      <div className="panel month-detail-panel">
+      <div className="panel">
         <div className="panel-head">
           <div>
             <h2>{getMonthLabel(monthKey)} expenses</h2>
             <p>Newest first</p>
           </div>
-          <button type="button" className="secondary-btn" onClick={onBack}>
+          <button type="button" className="btn btn-outline" onClick={onBack}>
+            <ArrowLeft size={15} />
             All Months
           </button>
         </div>
@@ -961,11 +952,11 @@ function MonthDetail({ monthKey, expenses, onBack, onEdit, onDelete }) {
           </div>
         ) : (
           <div className="empty">
-            <ReceiptText size={28} />
+            <ReceiptText size={26} />
             <b>No expenses for {getMonthLabel(monthKey)}</b>
-            <span>Add an expense with a date in this month, or go back to pick another month.</span>
-            <button type="button" className="dark-btn empty-add" onClick={onBack}>
-              <ArrowLeft size={16} /> Back to Monthly Bills
+            <span>Add an expense dated in this month, or go back and pick another month.</span>
+            <button type="button" className="btn btn-primary empty-add" onClick={onBack}>
+              <ArrowLeft size={15} /> Back to Monthly Bills
             </button>
           </div>
         )}
@@ -1041,6 +1032,7 @@ function Dashboard({
   all,
   monthlyBills,
   onOpenMonth,
+  onViewMonths,
   onAdd,
   onMoneyAdd,
   onView,
@@ -1050,74 +1042,103 @@ function Dashboard({
   const currentKey = today().slice(0, 7);
   const thisMonth = monthlyBills.find((bill) => bill.key === currentKey);
 
+  const categories = [
+    { key: "rent", label: "Room rent", value: totals.rent },
+    { key: "travel", label: "Travel", value: totals.travel },
+    { key: "food", label: "Food", value: totals.food },
+    { key: "snacks", label: "Snacks", value: totals.snacks },
+    { key: "other", label: "Other", value: totals.other }
+  ];
+
+  const percent = (value) =>
+    totals.grand > 0 ? (value / totals.grand) * 100 : 0;
+
   return (
     <section className="content">
-      <div className="hero-card">
-        <div className="hero-main">
-          <span className="hero-label">TOTAL SPENT</span>
-          <div className="hero-total">{money(totals.grand)}</div>
-          <p>Room rent, travel, food, snacks & other expenses</p>
+      <div className="kpi-grid three">
+        <div className="kpi accent">
+          <span className="kpi-label">Total spent</span>
+          <strong className="kpi-value">{money(totals.grand)}</strong>
+          <span className="kpi-sub">Rent, travel, food, snacks & other</span>
         </div>
-
-        <div className="hero-art">
-          <div className="hero-art-icon">
-            <CalendarDays size={18} />
-          </div>
-          <div>
-            <span>This month</span>
-            <b>{money(thisMonth ? thisMonth.total : 0)}</b>
-          </div>
+        <div className="kpi">
+          <span className="kpi-label">This month</span>
+          <strong className="kpi-value">{money(thisMonth ? thisMonth.total : 0)}</strong>
+          <span className="kpi-sub">
+            {thisMonth
+              ? `${thisMonth.count} expense${thisMonth.count === 1 ? "" : "s"}`
+              : "No expenses yet"}
+          </span>
+        </div>
+        <div className="kpi">
+          <span className="kpi-label">Money outstanding</span>
+          <strong className="kpi-value">{money(totals.moneyOutstanding)}</strong>
+          <span className="kpi-sub">Still to be returned</span>
         </div>
       </div>
 
-      <div className="panel monthly-expenses-panel">
+      <div className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>Spending by category</h2>
+            <p>Share of your total spending</p>
+          </div>
+        </div>
+
+        <div className="stack">
+          {categories
+            .filter((c) => c.value > 0)
+            .map((c) => (
+              <i
+                key={c.key}
+                className={`seg ${c.key}`}
+                style={{ width: `${percent(c.value)}%` }}
+                title={`${c.label}: ${money(c.value)}`}
+              />
+            ))}
+        </div>
+
+        <div className="legend">
+          {categories.map((c) => (
+            <div className="legend-item" key={c.key}>
+              <span className={`legend-dot ${c.key}`} />
+              <span className="legend-label">{c.label}</span>
+              <b>{money(c.value)}</b>
+              <small>{percent(c.value).toFixed(0)}%</small>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel">
         <div className="panel-head">
           <div>
             <h2>Monthly bills</h2>
             <p>Select a month to see its expenses</p>
           </div>
-          <CalendarDays size={19} className="monthly-expenses-icon" />
+          {monthlyBills.length > 6 && (
+            <button type="button" className="link-btn" onClick={onViewMonths}>
+              View all
+            </button>
+          )}
         </div>
 
         {monthlyBills.length ? (
-          <div className="month-card-list">
-            {monthlyBills.map((bill) => (
-              <MonthCard
-                key={bill.key}
-                bill={bill}
-                max={max}
-                onOpen={onOpenMonth}
-              />
+          <div className="month-grid">
+            {monthlyBills.slice(0, 6).map((bill) => (
+              <MonthCard key={bill.key} bill={bill} max={max} onOpen={onOpenMonth} />
             ))}
           </div>
         ) : (
-          <div className="monthly-expenses-empty">
-            No monthly expenses to show yet. Add an expense to get started.
+          <div className="empty">
+            <CalendarDays size={26} />
+            <b>No monthly bills yet</b>
+            <span>Add an expense to get started.</span>
           </div>
         )}
       </div>
 
-      <div className="section-head">
-        <div>
-          <h2>Expense overview</h2>
-          <p>Everything at a glance</p>
-        </div>
-      </div>
-
-      <div className="stats-grid">
-        <Stat icon={<BedDouble />} title="Room Rent" value={totals.rent} cls="rent" />
-        <Stat icon={<TrainFront />} title="Travel" value={totals.travel} cls="travel" />
-        <Stat icon={<Utensils />} title="Food" value={totals.food} cls="food" />
-        <Stat icon={<Coffee />} title="Snacks" value={totals.snacks} cls="snacks" />
-        <Stat
-          icon={<CircleDollarSign />}
-          title="Other"
-          value={totals.other}
-          cls="other"
-        />
-      </div>
-
-      <div className="grid-two">
+      <div className="split">
         <div className="panel">
           <div className="panel-head">
             <div>
@@ -1125,16 +1146,16 @@ function Dashboard({
               <p>Meal-wise spending</p>
             </div>
             <button
-              className="text-btn"
+              className="link-btn"
               onClick={() => onAdd({ type: "food", item: null })}
             >
               + Add food
             </button>
           </div>
 
-          <MealRow label="Breakfast" value={totals.breakfast} />
-          <MealRow label="Lunch" value={totals.lunch} />
-          <MealRow label="Dinner" value={totals.dinner} />
+          <MealRow label="Breakfast" value={totals.breakfast} total={totals.food} />
+          <MealRow label="Lunch" value={totals.lunch} total={totals.food} />
+          <MealRow label="Dinner" value={totals.dinner} total={totals.food} />
 
           <div className="food-total">
             <span>Total food</span>
@@ -1142,7 +1163,7 @@ function Dashboard({
           </div>
         </div>
 
-        <div className="panel quick">
+        <div className="panel">
           <div className="panel-head">
             <div>
               <h2>Quick add</h2>
@@ -1180,7 +1201,7 @@ function Dashboard({
 
       <div className="money-summary-panel">
         <div className="money-summary-copy">
-          <div className="money-summary-icon"><Users size={20} /></div>
+          <div className="money-summary-icon"><Users size={19} /></div>
           <div>
             <h2>Money given & received</h2>
             <p>Track money people give you and what you return.</p>
@@ -1203,22 +1224,22 @@ function Dashboard({
         </div>
 
         <div className="money-summary-actions">
-          <button className="secondary-btn" onClick={onMoneyView}>
+          <button className="btn btn-outline" onClick={onMoneyView}>
             View history
           </button>
-          <button className="dark-btn" onClick={onMoneyAdd}>
-            <Plus size={16} /> Add money
+          <button className="btn btn-primary" onClick={onMoneyAdd}>
+            <Plus size={15} /> Add money
           </button>
         </div>
       </div>
 
-      <div className="panel recent">
+      <div className="panel">
         <div className="panel-head">
           <div>
             <h2>Recent expenses</h2>
             <p>Your latest activity</p>
           </div>
-          <button className="text-btn" onClick={onView}>View all</button>
+          <button className="link-btn" onClick={onView}>View all</button>
         </div>
 
         {all.length ? (
@@ -1245,12 +1266,14 @@ function Stat({ icon, title, value, cls }) {
   );
 }
 
-function MealRow({ label, value }) {
+function MealRow({ label, value, total }) {
+  const width = total > 0 ? Math.max(value ? 4 : 0, (value / total) * 100) : 0;
+
   return (
     <div className="meal-row">
       <span>{label}</span>
       <div className="bar">
-        <i style={{ width: `${value ? Math.max(8, 100) : 0}%` }} />
+        <i style={{ width: `${width}%` }} />
       </div>
       <b>{money(value)}</b>
     </div>
@@ -1262,7 +1285,7 @@ function Quick({ icon, label, onClick }) {
     <button className="quick-row" onClick={onClick}>
       {icon}
       <span>{label}</span>
-      <Plus size={17} />
+      <Plus size={16} />
     </button>
   );
 }
@@ -1270,11 +1293,6 @@ function Quick({ icon, label, onClick }) {
 function Expenses({ all, onEdit, onDelete }) {
   return (
     <section className="content">
-      <div className="filter-note">
-        <CalendarDays size={18} />
-        <span>Expenses are automatically saved with their date.</span>
-      </div>
-
       <div className="panel">
         <div className="panel-head">
           <div>
@@ -1304,18 +1322,7 @@ function Expenses({ all, onEdit, onDelete }) {
 function Food({ data, totals, onAdd, onEdit, onDelete }) {
   return (
     <section className="content">
-      <div className="food-banner">
-        <Utensils size={22} />
-        <div>
-          <b>Food spending</b>
-          <span>Track every meal and understand your daily food habits.</span>
-        </div>
-        <button onClick={() => onAdd({ type: "food", item: null })}>
-          <Plus size={17} /> Add food
-        </button>
-      </div>
-
-      <div className="stats-grid food-stats">
+      <div className="stats-grid">
         <Stat icon={<span>☀</span>} title="Breakfast" value={totals.breakfast} cls="morning" />
         <Stat icon={<span>◐</span>} title="Lunch" value={totals.lunch} cls="afternoon" />
         <Stat icon={<span>☾</span>} title="Dinner" value={totals.dinner} cls="evening" />
@@ -1328,6 +1335,12 @@ function Food({ data, totals, onAdd, onEdit, onDelete }) {
             <h2>Complete food breakdown</h2>
             <p>Every meal you've recorded</p>
           </div>
+          <button
+            className="btn btn-primary"
+            onClick={() => onAdd({ type: "food", item: null })}
+          >
+            <Plus size={15} /> Add food
+          </button>
         </div>
 
         {data.length ? (
@@ -1376,14 +1389,14 @@ function ExpenseRow({ x, actions, onEdit, onDelete }) {
             aria-label="Edit expense"
             onClick={() => onEdit({ type: x.type, item: x })}
           >
-            <Edit3 size={16} />
+            <Edit3 size={15} />
           </button>
           <button
             title="Delete"
             aria-label="Delete expense"
             onClick={() => onDelete(x.type, x.id)}
           >
-            <Trash2 size={16} />
+            <Trash2 size={15} />
           </button>
         </div>
       )}
@@ -1394,7 +1407,7 @@ function ExpenseRow({ x, actions, onEdit, onDelete }) {
 function Empty() {
   return (
     <div className="empty">
-      <ReceiptText size={28} />
+      <ReceiptText size={26} />
       <b>No expenses yet</b>
       <span>Add your first expense to see it here.</span>
     </div>
@@ -1404,28 +1417,16 @@ function Empty() {
 function MoneyPage({ transactions, people, totals, onAdd, onEdit, onDelete }) {
   return (
     <section className="content">
-      <div className="money-hero">
-        <div className="money-hero-icon"><Users size={23} /></div>
-        <div className="money-hero-copy">
-          <span className="hero-label">MONEY BALANCE</span>
-          <strong>{money(totals.moneyOutstanding)}</strong>
-          <p>Amount currently outstanding from money you've received.</p>
-        </div>
-        <button className="money-add-btn" onClick={onAdd}>
-          <Plus size={17} /> Add transaction
-        </button>
-      </div>
-
-      <div className="money-stats-grid">
+      <div className="kpi-grid four">
         <MoneyStat
           icon={<ArrowDownLeft />}
-          title="Total Given"
+          title="Total given"
           value={totals.moneyGiven}
           cls="given"
         />
         <MoneyStat
           icon={<ArrowUpRight />}
-          title="Total Returned"
+          title="Total returned"
           value={totals.moneyReturned}
           cls="returned"
         />
@@ -1444,11 +1445,9 @@ function MoneyPage({ transactions, people, totals, onAdd, onEdit, onDelete }) {
         />
       </div>
 
-      <div className="money-section-heading">
-        <div>
-          <h2>People & balances</h2>
-          <p>Each person has a separate transaction history.</p>
-        </div>
+      <div className="year-head">
+        <h2>People & balances</h2>
+        <span>Each person has a separate transaction history.</span>
       </div>
 
       {people.length ? (
@@ -1465,25 +1464,25 @@ function MoneyPage({ transactions, people, totals, onAdd, onEdit, onDelete }) {
           ))}
         </div>
       ) : (
-        <div className="panel money-empty-panel">
+        <div className="panel">
           <div className="empty">
-            <Users size={30} />
+            <Users size={26} />
             <b>No money records yet</b>
             <span>Add a transaction to start tracking money given and returned.</span>
-            <button className="dark-btn empty-add" onClick={onAdd}>
-              <Plus size={16} /> Add first transaction
+            <button className="btn btn-primary empty-add" onClick={onAdd}>
+              <Plus size={15} /> Add first transaction
             </button>
           </div>
         </div>
       )}
 
-      <div className="panel money-history-panel">
+      <div className="panel">
         <div className="panel-head">
           <div>
             <h2>All money transactions</h2>
             <p>{transactions.length} record{transactions.length === 1 ? "" : "s"}</p>
           </div>
-          <History size={20} className="history-icon" />
+          <History size={18} className="history-icon" />
         </div>
 
         {transactions.length ? (
@@ -1574,7 +1573,7 @@ function PersonCard({ person, transactions, onAdd, onEdit, onDelete }) {
         className="person-add-return"
         onClick={() => onAdd({ person })}
       >
-        <Plus size={15} /> Add transaction for {person}
+        <Plus size={14} /> Add transaction for {person}
       </button>
     </div>
   );
@@ -1625,14 +1624,14 @@ function MoneyTransactionRow({
           aria-label="Edit money transaction"
           onClick={() => onEdit(transaction)}
         >
-          <Edit3 size={16} />
+          <Edit3 size={15} />
         </button>
         <button
           title="Delete"
           aria-label="Delete money transaction"
           onClick={() => onDelete(transaction.id)}
         >
-          <Trash2 size={16} />
+          <Trash2 size={15} />
         </button>
       </div>
     </div>
