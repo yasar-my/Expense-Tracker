@@ -16,7 +16,6 @@ import {
   Menu,
   Plus,
   ReceiptText,
-  Sparkles,
   Trash2,
   Utensils,
   Users,
@@ -515,7 +514,7 @@ function App() {
 
   const headerTitle =
     page === "dashboard"
-      ? "Good to see you"
+      ? "Dashboard"
       : page === "food"
         ? "Food breakdown"
         : page === "money"
@@ -526,12 +525,21 @@ function App() {
               ? getMonthLabel(selectedMonth)
               : "All expenses";
 
+  const headerEyebrow =
+    page === "month"
+      ? "MONTHLY BILL"
+      : page === "months"
+        ? "REPORTS"
+        : page === "money"
+          ? "LEDGER"
+          : "OVERVIEW";
+
   return (
     <div className="app">
       <aside className={`sidebar ${menu ? "open" : ""}`}>
         <div className="brand">
           <div className="brand-icon">
-            <WalletCards size={21} />
+            <WalletCards size={20} />
           </div>
 
           <div>
@@ -548,7 +556,7 @@ function App() {
           </button>
         </div>
 
-        <div className="nav-label">MENU</div>
+        <div className="nav-label">NAVIGATION</div>
 
         <nav>
           <Nav
@@ -640,9 +648,7 @@ function App() {
           </button>
 
           <div>
-            <div className="eyebrow">
-              {page === "month" ? "MONTHLY BILL" : "PERSONAL FINANCE"}
-            </div>
+            <div className="eyebrow">{headerEyebrow}</div>
             <h1>{headerTitle}</h1>
           </div>
 
@@ -818,7 +824,7 @@ function Nav({ active, onClick, icon, children }) {
 }
 
 function MonthCard({ bill, max, onOpen }) {
-  const share = max > 0 ? Math.max(6, Math.round((bill.total / max) * 100)) : 0;
+  const share = max > 0 ? Math.max(4, Math.round((bill.total / max) * 100)) : 0;
 
   return (
     <button
@@ -930,7 +936,15 @@ function MonthDetail({ monthKey, expenses, onBack, onEdit, onDelete }) {
         </div>
 
         {expenses.length ? (
-          <div className="month-expense-list">
+          <div className="month-table">
+            <div className="month-table-head">
+              <span>Date</span>
+              <span>Category</span>
+              <span>Description</span>
+              <span className="align-right">Amount</span>
+              <span className="align-right">Actions</span>
+            </div>
+
             {expenses.map((expense) => (
               <MonthExpenseItem
                 key={`${expense.type}-${expense.id}`}
@@ -939,6 +953,11 @@ function MonthDetail({ monthKey, expenses, onBack, onEdit, onDelete }) {
                 onDelete={onDelete}
               />
             ))}
+
+            <div className="month-table-foot">
+              <span>Total for {getMonthLabel(monthKey)}</span>
+              <b>{money(total)}</b>
+            </div>
           </div>
         ) : (
           <div className="empty">
@@ -956,13 +975,6 @@ function MonthDetail({ monthKey, expenses, onBack, onEdit, onDelete }) {
 }
 
 function MonthExpenseItem({ expense, onEdit, onDelete }) {
-  const icon =
-    expense.type === "travel" ? <TrainFront /> :
-    expense.type === "food" ? <Utensils /> :
-    expense.type === "snacks" ? <Coffee /> :
-    expense.type === "other" ? <CircleDollarSign /> :
-    <BedDouble />;
-
   const category =
     expense.type === "other"
       ? expense.category || "Other"
@@ -983,23 +995,24 @@ function MonthExpenseItem({ expense, onEdit, onDelete }) {
   }
 
   return (
-    <div className="month-expense-item">
-      <div className={`row-icon ${expense.type}`}>{icon}</div>
-
-      <div className="month-expense-main">
-        <div className="month-expense-top">
-          <b>{description}</b>
-          <span className={`category-chip ${expense.type}`}>{category}</span>
-        </div>
-        <span className="month-expense-meta">
-          <CalendarDays size={12} /> {formatDate(expense.date)}
-          {details.length ? ` • ${details.join(" • ")}` : ""}
-        </span>
+    <div className="month-row">
+      <div className="mr-date">
+        <CalendarDays size={14} />
+        {formatDate(expense.date)}
       </div>
 
-      <strong className="month-expense-amount">{money(expense.amount)}</strong>
+      <div className="mr-cat">
+        <span className={`category-chip ${expense.type}`}>{category}</span>
+      </div>
 
-      <div className="month-expense-actions">
+      <div className="mr-desc">
+        <b>{description}</b>
+        {details.length > 0 && <span>{details.join(" • ")}</span>}
+      </div>
+
+      <div className="mr-amount">{money(expense.amount)}</div>
+
+      <div className="mr-actions">
         <button
           type="button"
           className="edit-action"
@@ -1048,7 +1061,7 @@ function Dashboard({
 
         <div className="hero-art">
           <div className="hero-art-icon">
-            <Sparkles size={18} />
+            <CalendarDays size={18} />
           </div>
           <div>
             <span>This month</span>
