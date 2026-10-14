@@ -39,20 +39,20 @@ import {
   X,
   TrainFront
 } from "lucide-react";
-import "./styles.css";[cite: 1]
+import "./styles.css";
 
-const KEY = "roomlife-expenses-v1";[cite: 1]
-const LAST_TYPE_KEY = "roomlife-last-type";[cite: 1]
-const LAST_EXPENSE_KEY = "roomlife-last-expense";[cite: 1]
-const PREF_KEY = "roomlife-prefs";[cite: 1]
-const REMIND_KEY = "roomlife-last-reminded";[cite: 1]
+const KEY = "roomlife-expenses-v1";
+const LAST_TYPE_KEY = "roomlife-last-type";
+const LAST_EXPENSE_KEY = "roomlife-last-expense";
+const PREF_KEY = "roomlife-prefs";
+const REMIND_KEY = "roomlife-last-reminded";
 
 /* =========================================================
    Multi-language (English / Tamil / Hindi)
    Missing keys automatically fall back to English.
    ========================================================= */
-const LOCALES = { en: "en-IN", ta: "ta-IN", hi: "hi-IN" };[cite: 1]
-let activeLang = "en";[cite: 1]
+const LOCALES = { en: "en-IN", ta: "ta-IN", hi: "hi-IN" };
+let activeLang = "en";
 
 const I18N = {
   en: {
@@ -247,32 +247,32 @@ const I18N = {
 };
 
 function translate(lang, key, vars) {
-  let s = (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;[cite: 1]
+  let s = (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key;
   if (vars) {
     Object.keys(vars).forEach((k) => {
-      s = s.split(`{${k}}`).join(vars[k]);[cite: 1]
+      s = s.split(`{${k}}`).join(vars[k]);
     });
   }
-  return s;[cite: 1]
+  return s;
 }
 
-const LangCtx = createContext({ lang: "en", t: (k) => k });[cite: 1]
-const useT = () => useContext(LangCtx).t;[cite: 1]
+const LangCtx = createContext({ lang: "en", t: (k) => k });
+const useT = () => useContext(LangCtx).t;
 
 /* ---------- Basic helpers ---------- */
 
 function dateKey(offsetDays = 0) {
-  const d = new Date();[cite: 1]
-  d.setDate(d.getDate() - offsetDays);[cite: 1]
-  const y = d.getFullYear();[cite: 1]
-  const m = String(d.getMonth() + 1).padStart(2, "0");[cite: 1]
-  const day = String(d.getDate()).padStart(2, "0");[cite: 1]
-  return `${y}-${m}-${day}`;[cite: 1]
+  const d = new Date();
+  d.setDate(d.getDate() - offsetDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
-const today = () => dateKey(0);[cite: 1]
-const money = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;[cite: 1]
-const sumBy = (items) => items.reduce((t, i) => t + Number(i.amount || 0), 0);[cite: 1]
+const today = () => dateKey(0);
+const money = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
+const sumBy = (items) => items.reduce((t, i) => t + Number(i.amount || 0), 0);
 
 const starter = {
   travel: [],
@@ -282,94 +282,94 @@ const starter = {
   other: [],
   money: [],
   budgets: {}
-};[cite: 1]
+};
 
 function cleanBudgets(b) {
-  const out = {};[cite: 1]
+  const out = {};
   if (b && typeof b === "object") {
     Object.keys(b).forEach((k) => {
-      const v = Number(b[k]);[cite: 1]
-      if ((k === "default" || /^\d{4}-\d{2}$/.test(k)) && v > 0) out[k] = v;[cite: 1]
+      const v = Number(b[k]);
+      if ((k === "default" || /^\d{4}-\d{2}$/.test(k)) && v > 0) out[k] = v;
     });
   }
-  return out;[cite: 1]
+  return out;
 }
 
 function loadData() {
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY));[cite: 1]
-    if (!saved) return starter;[cite: 1]
+    const saved = JSON.parse(localStorage.getItem(KEY));
+    if (!saved) return starter;
 
     return {
       ...starter,
       ...saved,
-      travel: Array.isArray(saved.travel) ? saved.travel : [],[cite: 1]
-      food: Array.isArray(saved.food) ? saved.food : [],[cite: 1]
-      snacks: Array.isArray(saved.snacks) ? saved.snacks : [],[cite: 1]
-      rent: Array.isArray(saved.rent) ? saved.rent : [],[cite: 1]
-      other: Array.isArray(saved.other) ? saved.other : [],[cite: 1]
-      money: Array.isArray(saved.money) ? saved.money : [],[cite: 1]
-      budgets: cleanBudgets(saved.budgets)[cite: 1]
+      travel: Array.isArray(saved.travel) ? saved.travel : [],
+      food: Array.isArray(saved.food) ? saved.food : [],
+      snacks: Array.isArray(saved.snacks) ? saved.snacks : [],
+      rent: Array.isArray(saved.rent) ? saved.rent : [],
+      other: Array.isArray(saved.other) ? saved.other : [],
+      money: Array.isArray(saved.money) ? saved.money : [],
+      budgets: cleanBudgets(saved.budgets)
     };
   } catch {
-    return starter;[cite: 1]
+    return starter;
   }
 }
 
 function loadLastType() {
   try {
-    const t = localStorage.getItem(LAST_TYPE_KEY);[cite: 1]
-    return ["travel", "food", "snacks", "rent", "other"].includes(t) ? t : "travel";[cite: 1]
+    const t = localStorage.getItem(LAST_TYPE_KEY);
+    return ["travel", "food", "snacks", "rent", "other"].includes(t) ? t : "travel";
   } catch {
-    return "travel";[cite: 1]
+    return "travel";
   }
 }
 
 function loadLastExpense() {
   try {
-    const v = JSON.parse(localStorage.getItem(LAST_EXPENSE_KEY));[cite: 1]
-    return v && v.type && v.item ? v : null;[cite: 1]
+    const v = JSON.parse(localStorage.getItem(LAST_EXPENSE_KEY));
+    return v && v.type && v.item ? v : null;
   } catch {
-    return null;[cite: 1]
+    return null;
   }
 }
 
 function loadPrefs() {
   const base = {
-    theme: window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",[cite: 1]
+    theme: window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",
     lang: "en",
     reminderOn: false,
     reminderTime: "21:00"
-  };[cite: 1]
+  };
   try {
-    return { ...base, ...JSON.parse(localStorage.getItem(PREF_KEY) || "{}") };[cite: 1]
+    return { ...base, ...JSON.parse(localStorage.getItem(PREF_KEY) || "{}") };
   } catch {
-    return base;[cite: 1]
+    return base;
   }
 }
 
 function normalizeBackupData(imported) {
   if (!imported || typeof imported !== "object") {
-    throw new Error("Invalid backup structure");[cite: 1]
+    throw new Error("Invalid backup structure");
   }
 
-  const types = ["travel", "food", "snacks", "rent", "other", "money"];[cite: 1]
-  const hasRoomLifeData = types.some((type) => Array.isArray(imported[type]));[cite: 1]
+  const types = ["travel", "food", "snacks", "rent", "other", "money"];
+  const hasRoomLifeData = types.some((type) => Array.isArray(imported[type]));
 
   if (!hasRoomLifeData) {
-    throw new Error("No RoomLife data found");[cite: 1]
+    throw new Error("No RoomLife data found");
   }
 
-  const normalized = {};[cite: 1]
+  const normalized = {};
 
   types.forEach((type) => {
     normalized[type] = Array.isArray(imported[type])
-      ? imported[type].filter((item) => item && typeof item === "object")[cite: 1]
+      ? imported[type].filter((item) => item && typeof item === "object")
       : [];
   });
 
-  normalized.budgets = cleanBudgets(imported.budgets);[cite: 1]
-  return normalized;[cite: 1]
+  normalized.budgets = cleanBudgets(imported.budgets);
+  return normalized;
 }
 
 function getItemFingerprint(item) {
@@ -384,75 +384,75 @@ function getItemFingerprint(item) {
     category: item.category || "",
     person: item.person || "",
     type: item.type || ""
-  });[cite: 1]
+  });
 }
 
 function createId(type) {
-  return `${Date.now()}-${type}-${Math.random().toString(36).slice(2, 9)}`;[cite: 1]
+  return `${Date.now()}-${type}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 /* ---------- Month / date helpers ---------- */
 
-const MONTH_KEY_PATTERN = /^\d{4}-\d{2}$/;[cite: 1]
+const MONTH_KEY_PATTERN = /^\d{4}-\d{2}$/;
 
 function getMonthKey(date) {
-  const key = String(date || "").slice(0, 7);[cite: 1]
-  return MONTH_KEY_PATTERN.test(key) ? key : "";[cite: 1]
+  const key = String(date || "").slice(0, 7);
+  return MONTH_KEY_PATTERN.test(key) ? key : "";
 }
 
 function getMonthParts(monthKey) {
-  const [year, month] = String(monthKey).split("-").map(Number);[cite: 1]
-  return { year, month };[cite: 1]
+  const [year, month] = String(monthKey).split("-").map(Number);
+  return { year, month };
 }
 
 function getMonthName(monthKey) {
-  const { year, month } = getMonthParts(monthKey);[cite: 1]
+  const { year, month } = getMonthParts(monthKey);
   return new Date(year, month - 1, 1).toLocaleDateString(LOCALES[activeLang], {
     month: "long"
-  });[cite: 1]
+  });
 }
 
 function getMonthLabel(monthKey) {
-  const { year, month } = getMonthParts(monthKey);[cite: 1]
-  if (!year || !month) return "—";[cite: 1]
+  const { year, month } = getMonthParts(monthKey);
+  if (!year || !month) return "—";
   return new Date(year, month - 1, 1).toLocaleDateString(LOCALES[activeLang], {
     month: "long",
     year: "numeric"
-  });[cite: 1]
+  });
 }
 
 function formatDate(date) {
-  if (!date) return "";[cite: 1]
-  const parsed = new Date(`${date}T00:00:00`);[cite: 1]
-  if (Number.isNaN(parsed.getTime())) return String(date);[cite: 1]
+  if (!date) return "";
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return String(date);
   return parsed.toLocaleDateString(LOCALES[activeLang], {
     day: "2-digit",
     month: "short",
     year: "numeric"
-  });[cite: 1]
+  });
 }
 
 function daysInMonth(monthKey) {
-  const { year, month } = getMonthParts(monthKey);[cite: 1]
-  return new Date(year, month, 0).getDate();[cite: 1]
+  const { year, month } = getMonthParts(monthKey);
+  return new Date(year, month, 0).getDate();
 }
 
 function daysElapsed(monthKey) {
-  const cur = today().slice(0, 7);[cite: 1]
-  if (monthKey === cur) return new Date().getDate();[cite: 1]
-  return monthKey < cur ? daysInMonth(monthKey) : 1;[cite: 1]
+  const cur = today().slice(0, 7);
+  if (monthKey === cur) return new Date().getDate();
+  return monthKey < cur ? daysInMonth(monthKey) : 1;
 }
 
 function getBudget(budgets, monthKey) {
-  return Number(budgets?.[monthKey] ?? budgets?.default ?? 0);[cite: 1]
+  return Number(budgets?.[monthKey] ?? budgets?.default ?? 0);
 }
 
 function buildMonthlyBills(expenses) {
-  const grouped = new Map();[cite: 1]
+  const grouped = new Map();
 
   expenses.forEach((expense) => {
-    const monthKey = getMonthKey(expense.date);[cite: 1]
-    if (!monthKey) return;[cite: 1]
+    const monthKey = getMonthKey(expense.date);
+    if (!monthKey) return;
 
     if (!grouped.has(monthKey)) {
       grouped.set(monthKey, {
@@ -460,43 +460,43 @@ function buildMonthlyBills(expenses) {
         year: getMonthParts(monthKey).year,
         total: 0,
         count: 0
-      });[cite: 1]
+      });
     }
 
-    const bill = grouped.get(monthKey);[cite: 1]
-    bill.total += Number(expense.amount || 0);[cite: 1]
-    bill.count += 1;[cite: 1]
+    const bill = grouped.get(monthKey);
+    bill.total += Number(expense.amount || 0);
+    bill.count += 1;
   });
 
-  return [...grouped.values()].sort((a, b) => b.key.localeCompare(a.key));[cite: 1]
+  return [...grouped.values()].sort((a, b) => b.key.localeCompare(a.key));
 }
 
 function buildDailyTotals(expenses) {
-  const map = new Map();[cite: 1]
+  const map = new Map();
   expenses.forEach((e) => {
-    if (!e.date) return;[cite: 1]
-    map.set(e.date, (map.get(e.date) || 0) + Number(e.amount || 0));[cite: 1]
+    if (!e.date) return;
+    map.set(e.date, (map.get(e.date) || 0) + Number(e.amount || 0));
   });
-  return map;[cite: 1]
+  return map;
 }
 
 const categoryOf = (e, t) =>
-  e.type === "other" ? t(e.category || "other") : t(e.type === "rent" ? "rent_full" : e.type);[cite: 1]
+  e.type === "other" ? t(e.category || "other") : t(e.type === "rent" ? "rent_full" : e.type);
 
 const descOf = (e, t) =>
   e.type === "food"
-    ? e.food || t("food")[cite: 1]
+    ? e.food || t("food")
     : e.type === "rent"
-      ? e.description || t("rent_full")[cite: 1]
-      : e.description || e.name || t("other");[cite: 1]
+      ? e.description || t("rent_full")
+      : e.description || e.name || t("other");
 
 /* ---------- Quick-add & Food Suggestions helpers ---------- */
 
 const SUGGESTIONS = {
-  travel: ["Bus", "Auto", "Train", "Cab", "Metro"],[cite: 1]
-  food: ["Idly", "Dosa", "Meals", "Biriyani", "Tiffin"],[cite: 1]
-  snacks: ["Tea", "Coffee", "Biscuit", "Juice", "Samosa"],[cite: 1]
-  other: ["Soap", "Detergent", "Toothpaste", "Hanger"][cite: 1]
+  travel: ["Bus", "Auto", "Train", "Cab", "Metro"],
+  food: ["Idly", "Dosa", "Meals", "Biriyani", "Tiffin"],
+  snacks: ["Tea", "Coffee", "Biscuit", "Juice", "Samosa"],
+  other: ["Soap", "Detergent", "Toothpaste", "Hanger"]
 };
 
 const FOOD_SUGGESTIONS_BY_MEAL = {
@@ -505,41 +505,41 @@ const FOOD_SUGGESTIONS_BY_MEAL = {
   Dinner: ["Idly", "Dosai", "Chapathi", "Vada", "Omelette", "Fried Rice", "Biryani", "Parotta", "Chicken", "Mutton"]
 };
 
-const QUICK_AMOUNTS = [10, 20, 50, 100, 200, 500];[cite: 1]
+const QUICK_AMOUNTS = [10, 20, 50, 100, 200, 500];
 
 const QUICK_BY_KIND = {
-  travel: [10, 20, 30, 40, 50, 100, 200],[cite: 1]
-  Breakfast: [30, 40, 50, 60, 70, 80],[cite: 1]
-  Lunch: [40, 50, 60, 70, 80, 90, 100],[cite: 1]
-  Dinner: [40, 50, 60, 70, 80, 90, 100],[cite: 1]
-  snacks: [10, 20, 30, 40, 50],[cite: 1]
-  other: [20, 50, 100, 200, 500],[cite: 1]
-  rent: [2000, 3000, 4000, 5000, 6000, 7000, 8000][cite: 1]
+  travel: [10, 20, 30, 40, 50, 100, 200],
+  Breakfast: [30, 40, 50, 60, 70, 80],
+  Lunch: [40, 50, 60, 70, 80, 90, 100],
+  Dinner: [40, 50, 60, 70, 80, 90, 100],
+  snacks: [10, 20, 30, 40, 50],
+  other: [20, 50, 100, 200, 500],
+  rent: [2000, 3000, 4000, 5000, 6000, 7000, 8000]
 };
 
-const chipLabel = (v) => (v >= 1000 ? `₹${v / 1000}k` : `₹${v}`);[cite: 1]
+const chipLabel = (v) => (v >= 1000 ? `₹${v / 1000}k` : `₹${v}`);
 
 function mealByTime() {
-  const hour = new Date().getHours();[cite: 1]
-  if (hour < 11) return "Breakfast";[cite: 1]
-  if (hour < 16) return "Lunch";[cite: 1]
-  return "Dinner";[cite: 1]
+  const hour = new Date().getHours();
+  if (hour < 11) return "Breakfast";
+  if (hour < 16) return "Lunch";
+  return "Dinner";
 }
 
 /* ---------- PDF bill ---------- */
 
 const esc = (s) =>
-  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));[cite: 1]
+  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 function buildBillHtml({ monthKey, expenses, budget, t }) {
-  const total = sumBy(expenses);[cite: 1]
-  const avg = total / daysElapsed(monthKey);[cite: 1]
-  const sorted = [...expenses].sort((a, b) => String(a.date).localeCompare(String(b.date)));[cite: 1]
+  const total = sumBy(expenses);
+  const avg = total / daysElapsed(monthKey);
+  const sorted = [...expenses].sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
-  const cats = {};[cite: 1]
+  const cats = {};
   sorted.forEach((e) => {
-    const c = categoryOf(e, t);[cite: 1]
-    cats[c] = (cats[c] || 0) + Number(e.amount || 0);[cite: 1]
+    const c = categoryOf(e, t);
+    cats[c] = (cats[c] || 0) + Number(e.amount || 0);
   });
 
   const rows = sorted
@@ -548,11 +548,11 @@ function buildBillHtml({ monthKey, expenses, budget, t }) {
       <td>${esc(descOf(e, t))}${e.type === "food" && e.meal ? ` <small>(${esc(t(e.meal))})</small>` : ""}</td>
       <td class="r">${esc(money(e.amount))}</td></tr>`
     )
-    .join("");[cite: 1]
+    .join("");
 
   const catRows = Object.keys(cats)
     .map((c) => `<tr><td>${esc(c)}</td><td class="r">${esc(money(cats[c]))}</td></tr>`)
-    .join("");[cite: 1]
+    .join("");
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>RoomLife - ${esc(getMonthLabel(monthKey))}</title>
 <style>
@@ -584,21 +584,21 @@ function buildBillHtml({ monthKey, expenses, budget, t }) {
 <tbody>${rows}</tbody>
 <tfoot><tr><td colspan="3">${esc(t("total_for", { month: getMonthLabel(monthKey) }))}</td><td class="r">${esc(money(total))}</td></tr></tfoot></table>
 <div class="foot">${esc(t("bill_generated"))} • ${esc(formatDate(today()))}</div>
-</body></html>`;[cite: 1]
+</body></html>`;
 }
 
 function printHtml(html) {
-  const iframe = document.createElement("iframe");[cite: 1]
-  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";[cite: 1]
-  document.body.appendChild(iframe);[cite: 1]
-  const doc = iframe.contentWindow.document;[cite: 1]
-  doc.open();[cite: 1]
-  doc.write(html);[cite: 1]
-  doc.close();[cite: 1]
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+  document.body.appendChild(iframe);
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
   window.setTimeout(() => {
-    iframe.contentWindow.focus();[cite: 1]
-    iframe.contentWindow.print();[cite: 1]
-    window.setTimeout(() => iframe.remove(), 60000);[cite: 1]
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+    window.setTimeout(() => iframe.remove(), 60000);
   }, 350);
 }
 
@@ -607,9 +607,9 @@ async function showReminder(title, body, fallback) {
     if ("Notification" in window && Notification.permission === "granted") {
       const reg = navigator.serviceWorker
         ? await navigator.serviceWorker.getRegistration()
-        : null;[cite: 1]
-      if (reg) reg.showNotification(title, { body, tag: "roomlife-daily" });[cite: 1]
-      else new Notification(title, { body, tag: "roomlife-daily" });[cite: 1]
+        : null;
+      if (reg) reg.showNotification(title, { body, tag: "roomlife-daily" });
+      else new Notification(title, { body, tag: "roomlife-daily" });
       return;
     }
   } catch {
@@ -623,165 +623,165 @@ async function showReminder(title, body, fallback) {
    ========================================================= */
 
 function App() {
-  const [data, setData] = useState(loadData);[cite: 1]
-  const [prefs, setPrefs] = useState(loadPrefs);[cite: 1]
-  const [page, setPage] = useState("dashboard");[cite: 1]
-  const [selectedMonth, setSelectedMonth] = useState(null);[cite: 1]
-  const [depth, setDepth] = useState(0);[cite: 1]
-  const [editing, setEditing] = useState(null);[cite: 1]
-  const [moneyEditing, setMoneyEditing] = useState(null);[cite: 1]
-  const [budgetEditing, setBudgetEditing] = useState(null);[cite: 1]
-  const [drawerOpen, setDrawerOpen] = useState(false);[cite: 1]
-  const [lastType, setLastType] = useState(loadLastType);[cite: 1]
-  const [lastExpense, setLastExpense] = useState(loadLastExpense);[cite: 1]
-  const [toast, setToast] = useState(null);[cite: 1]
-  const fileInputRef = useRef(null);[cite: 1]
-  const toastTimer = useRef(null);[cite: 1]
-  const dataRef = useRef(data);[cite: 1]
-  dataRef.current = data;[cite: 1]
+  const [data, setData] = useState(loadData);
+  const [prefs, setPrefs] = useState(loadPrefs);
+  const [page, setPage] = useState("dashboard");
+  const [selectedMonth, setSelectedMonth] = useState(null);
+  const [depth, setDepth] = useState(0);
+  const [editing, setEditing] = useState(null);
+  const [moneyEditing, setMoneyEditing] = useState(null);
+  const [budgetEditing, setBudgetEditing] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [lastType, setLastType] = useState(loadLastType);
+  const [lastExpense, setLastExpense] = useState(loadLastExpense);
+  const [toast, setToast] = useState(null);
+  const fileInputRef = useRef(null);
+  const toastTimer = useRef(null);
+  const dataRef = useRef(data);
+  dataRef.current = data;
 
-  activeLang = prefs.lang;[cite: 1]
-  const t = useMemo(() => (k, v) => translate(prefs.lang, k, v), [prefs.lang]);[cite: 1]
-  const langValue = useMemo(() => ({ lang: prefs.lang, t }), [prefs.lang, t]);[cite: 1]
+  activeLang = prefs.lang;
+  const t = useMemo(() => (k, v) => translate(prefs.lang, k, v), [prefs.lang]);
+  const langValue = useMemo(() => ({ lang: prefs.lang, t }), [prefs.lang, t]);
 
   useEffect(() => {
-    localStorage.setItem(KEY, JSON.stringify(data));[cite: 1]
+    localStorage.setItem(KEY, JSON.stringify(data));
   }, [data]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(PREF_KEY, JSON.stringify(prefs));[cite: 1]
+      localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
     } catch {
       /* ignore */
     }
-    document.documentElement.dataset.theme = prefs.theme;[cite: 1]
-    document.documentElement.lang = prefs.lang;[cite: 1]
+    document.documentElement.dataset.theme = prefs.theme;
+    document.documentElement.lang = prefs.lang;
   }, [prefs]);
 
   useEffect(() => {
-    if (!prefs.reminderOn) return undefined;[cite: 1]
+    if (!prefs.reminderOn) return undefined;
 
     const check = () => {
-      const now = new Date();[cite: 1]
-      const [h, m] = String(prefs.reminderTime).split(":").map(Number);[cite: 1]
-      if (now.getHours() * 60 + now.getMinutes() < h * 60 + m) return;[cite: 1]
+      const now = new Date();
+      const [h, m] = String(prefs.reminderTime).split(":").map(Number);
+      if (now.getHours() * 60 + now.getMinutes() < h * 60 + m) return;
 
-      const day = today();[cite: 1]
-      if (localStorage.getItem(REMIND_KEY) === day) return;[cite: 1]
-      localStorage.setItem(REMIND_KEY, day);[cite: 1]
+      const day = today();
+      if (localStorage.getItem(REMIND_KEY) === day) return;
+      localStorage.setItem(REMIND_KEY, day);
 
-      const d = dataRef.current;[cite: 1]
+      const d = dataRef.current;
       const hasToday = ["travel", "food", "snacks", "rent", "other"].some((k) =>
         d[k].some((x) => x.date === day)
-      );[cite: 1]
-      if (hasToday) return;[cite: 1]
+      );
+      if (hasToday) return;
 
-      const title = translate(prefs.lang, "reminder_title");[cite: 1]
-      const body = translate(prefs.lang, "reminder_body");[cite: 1]
-      showReminder(title, body, () => flash(body));[cite: 1]
+      const title = translate(prefs.lang, "reminder_title");
+      const body = translate(prefs.lang, "reminder_body");
+      showReminder(title, body, () => flash(body));
     };
 
-    check();[cite: 1]
-    const id = window.setInterval(check, 30000);[cite: 1]
-    return () => window.clearInterval(id);[cite: 1]
+    check();
+    const id = window.setInterval(check, 30000);
+    return () => window.clearInterval(id);
   }, [prefs.reminderOn, prefs.reminderTime, prefs.lang]);
 
   async function toggleReminder(on) {
     if (on) {
       if (!("Notification" in window)) {
-        flash(t("notif_unsupported"));[cite: 1]
+        flash(t("notif_unsupported"));
       } else {
         if (Notification.permission === "default") {
-          await Notification.requestPermission();[cite: 1]
+          await Notification.requestPermission();
         }
-        if (Notification.permission === "denied") flash(t("notif_denied"));[cite: 1]
+        if (Notification.permission === "denied") flash(t("notif_denied"));
       }
       try {
-        localStorage.removeItem(REMIND_KEY);[cite: 1]
+        localStorage.removeItem(REMIND_KEY);
       } catch {
         /* ignore */
       }
     }
-    setPrefs((p) => ({ ...p, reminderOn: on }));[cite: 1]
+    setPrefs((p) => ({ ...p, reminderOn: on }));
   }
 
   useEffect(() => {
-    const state = window.history.state;[cite: 1]
+    const state = window.history.state;
 
     if (state && typeof state.idx === "number" && state.page) {
-      setPage(state.page);[cite: 1]
-      setSelectedMonth(state.month || null);[cite: 1]
-      setDepth(state.idx);[cite: 1]
+      setPage(state.page);
+      setSelectedMonth(state.month || null);
+      setDepth(state.idx);
     } else {
-      window.history.replaceState({ page: "dashboard", month: null, idx: 0 }, "");[cite: 1]
+      window.history.replaceState({ page: "dashboard", month: null, idx: 0 }, "");
     }
 
     function onPop(event) {
-      const s = event.state;[cite: 1]
+      const s = event.state;
 
       if (s && s.page) {
-        setPage(s.page);[cite: 1]
-        setSelectedMonth(s.month || null);[cite: 1]
-        setDepth(s.idx || 0);[cite: 1]
+        setPage(s.page);
+        setSelectedMonth(s.month || null);
+        setDepth(s.idx || 0);
       } else {
-        setPage("dashboard");[cite: 1]
-        setSelectedMonth(null);[cite: 1]
-        setDepth(0);[cite: 1]
+        setPage("dashboard");
+        setSelectedMonth(null);
+        setDepth(0);
       }
 
-      setDrawerOpen(false);[cite: 1]
-      setEditing(null);[cite: 1]
-      setMoneyEditing(null);[cite: 1]
-      setBudgetEditing(null);[cite: 1]
-      window.scrollTo({ top: 0 });[cite: 1]
+      setDrawerOpen(false);
+      setEditing(null);
+      setMoneyEditing(null);
+      setBudgetEditing(null);
+      window.scrollTo({ top: 0 });
     }
 
-    window.addEventListener("popstate", onPop);[cite: 1]
-    return () => window.removeEventListener("popstate", onPop);[cite: 1]
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   function go(nextPage, month = null) {
-    setDrawerOpen(false);[cite: 1]
-    window.scrollTo({ top: 0 });[cite: 1]
+    setDrawerOpen(false);
+    window.scrollTo({ top: 0 });
 
-    if (nextPage === page && month === selectedMonth) return;[cite: 1]
+    if (nextPage === page && month === selectedMonth) return;
 
-    const idx = depth + 1;[cite: 1]
-    window.history.pushState({ page: nextPage, month, idx }, "");[cite: 1]
-    setPage(nextPage);[cite: 1]
-    setSelectedMonth(month);[cite: 1]
-    setDepth(idx);[cite: 1]
+    const idx = depth + 1;
+    window.history.pushState({ page: nextPage, month, idx }, "");
+    setPage(nextPage);
+    setSelectedMonth(month);
+    setDepth(idx);
   }
 
   function goBack() {
-    if (depth > 0) window.history.back();[cite: 1]
+    if (depth > 0) window.history.back();
   }
 
   function navigate(nextPage) {
-    go(nextPage, null);[cite: 1]
+    go(nextPage, null);
   }
 
   function openMonth(monthKey) {
-    go("month", monthKey);[cite: 1]
+    go("month", monthKey);
   }
 
   function backToMonths() {
-    go("months", null);[cite: 1]
+    go("months", null);
   }
 
   const totals = useMemo(() => {
-    const breakfast = sumBy(data.food.filter((x) => x.meal === "Breakfast"));[cite: 1]
-    const lunch = sumBy(data.food.filter((x) => x.meal === "Lunch"));[cite: 1]
-    const dinner = sumBy(data.food.filter((x) => x.meal === "Dinner"));[cite: 1]
-    const food = breakfast + lunch + dinner;[cite: 1]
-    const travel = sumBy(data.travel);[cite: 1]
-    const snacks = sumBy(data.snacks);[cite: 1]
-    const rent = sumBy(data.rent);[cite: 1]
-    const other = sumBy(data.other);[cite: 1]
+    const breakfast = sumBy(data.food.filter((x) => x.meal === "Breakfast"));
+    const lunch = sumBy(data.food.filter((x) => x.meal === "Lunch"));
+    const dinner = sumBy(data.food.filter((x) => x.meal === "Dinner"));
+    const food = breakfast + lunch + dinner;
+    const travel = sumBy(data.travel);
+    const snacks = sumBy(data.snacks);
+    const rent = sumBy(data.rent);
+    const other = sumBy(data.other);
 
-    const moneyGiven = sumBy(data.money.filter((x) => x.type === "given"));[cite: 1]
-    const moneyReturned = sumBy(data.money.filter((x) => x.type === "returned"));[cite: 1]
-    const moneyOutstanding = Math.max(0, moneyGiven - moneyReturned);[cite: 1]
+    const moneyGiven = sumBy(data.money.filter((x) => x.type === "given"));
+    const moneyReturned = sumBy(data.money.filter((x) => x.type === "returned"));
+    const moneyOutstanding = Math.max(0, moneyGiven - moneyReturned);
 
     return {
       breakfast,
@@ -792,7 +792,7 @@ function App() {
       snacks,
       rent,
       other,
-      grand: breakfast + lunch + dinner + travel + snacks + rent + other,[cite: 1]
+      grand: breakfast + lunch + dinner + travel + snacks + rent + other,
       moneyGiven,
       moneyReturned,
       moneyOutstanding
@@ -802,15 +802,15 @@ function App() {
   const all = useMemo(
     () =>
       [
-        ...data.rent.map((x) => ({ ...x, type: "rent", label: t("rent_full") })),[cite: 1]
-        ...data.travel.map((x) => ({ ...x, type: "travel", label: x.description })),[cite: 1]
+        ...data.rent.map((x) => ({ ...x, type: "rent", label: t("rent_full") })),
+        ...data.travel.map((x) => ({ ...x, type: "travel", label: x.description })),
         ...data.food.map((x) => ({
           ...x,
           type: "food",
           label: `${t(x.meal)} • ${x.food}`
-        })),[cite: 1]
-        ...data.snacks.map((x) => ({ ...x, type: "snacks", label: x.name })),[cite: 1]
-        ...data.other.map((x) => ({ ...x, type: "other", label: x.name }))[cite: 1]
+        })),
+        ...data.snacks.map((x) => ({ ...x, type: "snacks", label: x.name })),
+        ...data.other.map((x) => ({ ...x, type: "other", label: x.name }))
       ].sort(
         (a, b) =>
           String(b.date).localeCompare(String(a.date)) ||
@@ -819,8 +819,8 @@ function App() {
     [data, t]
   );
 
-  const monthlyBills = useMemo(() => buildMonthlyBills(all), [all]);[cite: 1]
-  const daily = useMemo(() => buildDailyTotals(all), [all]);[cite: 1]
+  const monthlyBills = useMemo(() => buildMonthlyBills(all), [all]);
+  const daily = useMemo(() => buildDailyTotals(all), [all]);
 
   const selectedExpenses = useMemo(
     () =>
@@ -831,28 +831,28 @@ function App() {
   );
 
   const people = useMemo(() => {
-    const map = new Map();[cite: 1]
+    const map = new Map();
 
     data.money.forEach((transaction) => {
-      const name = transaction.person?.trim();[cite: 1]
-      if (!name) return;[cite: 1]
+      const name = transaction.person?.trim();
+      if (!name) return;
 
-      const key = name.toLowerCase();[cite: 1]
-      if (!map.has(key)) map.set(key, name);[cite: 1]
+      const key = name.toLowerCase();
+      if (!map.has(key)) map.set(key, name);
     });
 
-    return [...map.values()].sort((a, b) => a.localeCompare(b));[cite: 1]
+    return [...map.values()].sort((a, b) => a.localeCompare(b));
   }, [data.money]);
 
   function flash(message, action) {
-    window.clearTimeout(toastTimer.current);[cite: 1]
-    setToast({ message, action });[cite: 1]
-    toastTimer.current = window.setTimeout(() => setToast(null), action ? 6500 : 1800);[cite: 1]
+    window.clearTimeout(toastTimer.current);
+    setToast({ message, action });
+    toastTimer.current = window.setTimeout(() => setToast(null), action ? 6500 : 1800);
   }
 
   function dismissToast() {
-    window.clearTimeout(toastTimer.current);[cite: 1]
-    setToast(null);[cite: 1]
+    window.clearTimeout(toastTimer.current);
+    setToast(null);
   }
 
   function downloadBackup() {
@@ -861,135 +861,135 @@ function App() {
       version: 1,
       exportedAt: new Date().toISOString(),
       data
-    };[cite: 1]
+    };
 
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
       type: "application/json"
-    });[cite: 1]
-    const url = URL.createObjectURL(blob);[cite: 1]
-    const link = document.createElement("a");[cite: 1]
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
 
-    link.href = url;[cite: 1]
-    link.download = `roomlife-expense-backup-${today()}.json`;[cite: 1]
-    document.body.appendChild(link);[cite: 1]
-    link.click();[cite: 1]
-    link.remove();[cite: 1]
-    URL.revokeObjectURL(url);[cite: 1]
+    link.href = url;
+    link.download = `roomlife-expense-backup-${today()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
 
-    setDrawerOpen(false);[cite: 1]
-    flash(t("backup_done"));[cite: 1]
+    setDrawerOpen(false);
+    flash(t("backup_done"));
   }
 
   function handleBackupUpload(event) {
-    const file = event.target.files?.[0];[cite: 1]
-    event.target.value = "";[cite: 1]
-    setDrawerOpen(false);[cite: 1]
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    setDrawerOpen(false);
 
-    if (!file) return;[cite: 1]
+    if (!file) return;
 
     if (!file.name.toLowerCase().endsWith(".json")) {
-      flash(t("bad_backup"));[cite: 1]
+      flash(t("bad_backup"));
       return;
     }
 
-    const reader = new FileReader();[cite: 1]
+    const reader = new FileReader();
 
     reader.onload = () => {
       try {
-        const backup = JSON.parse(reader.result);[cite: 1]
-        const imported = normalizeBackupData(backup?.data);[cite: 1]
-        const types = ["travel", "food", "snacks", "rent", "other", "money"];[cite: 1]
-        let addedCount = 0;[cite: 1]
+        const backup = JSON.parse(reader.result);
+        const imported = normalizeBackupData(backup?.data);
+        const types = ["travel", "food", "snacks", "rent", "other", "money"];
+        let addedCount = 0;
 
         setData((current) => {
-          const next = { ...current };[cite: 1]
-          addedCount = 0;[cite: 1]
+          const next = { ...current };
+          addedCount = 0;
 
           types.forEach((type) => {
-            const existing = Array.isArray(current[type]) ? current[type] : [];[cite: 1]
-            const fingerprints = new Set(existing.map(getItemFingerprint));[cite: 1]
-            const additions = [];[cite: 1]
+            const existing = Array.isArray(current[type]) ? current[type] : [];
+            const fingerprints = new Set(existing.map(getItemFingerprint));
+            const additions = [];
 
             imported[type].forEach((item) => {
-              const normalized = { ...item };[cite: 1]
+              const normalized = { ...item };
 
               if (type === "money") {
-                normalized.person = String(normalized.person || "").trim();[cite: 1]
-                normalized.type = normalized.type === "returned" ? "returned" : "given";[cite: 1]
+                normalized.person = String(normalized.person || "").trim();
+                normalized.type = normalized.type === "returned" ? "returned" : "given";
               }
 
               if (type === "other") {
-                normalized.category = normalized.category || "Miscellaneous";[cite: 1]
-                normalized.name = normalized.name || "Other expense";[cite: 1]
+                normalized.category = normalized.category || "Miscellaneous";
+                normalized.name = normalized.name || "Other expense";
               }
 
-              if (!normalized.date || Number(normalized.amount || 0) <= 0) return;[cite: 1]
-              if (type === "money" && !normalized.person) return;[cite: 1]
+              if (!normalized.date || Number(normalized.amount || 0) <= 0) return;
+              if (type === "money" && !normalized.person) return;
 
-              const fingerprint = getItemFingerprint(normalized);[cite: 1]
-              if (fingerprints.has(fingerprint)) return;[cite: 1]
+              const fingerprint = getItemFingerprint(normalized);
+              if (fingerprints.has(fingerprint)) return;
 
-              fingerprints.add(fingerprint);[cite: 1]
-              additions.push({ ...normalized, id: createId(type) });[cite: 1]
-              addedCount += 1;[cite: 1]
+              fingerprints.add(fingerprint);
+              additions.push({ ...normalized, id: createId(type) });
+              addedCount += 1;
             });
 
-            next[type] = [...existing, ...additions];[cite: 1]
+            next[type] = [...existing, ...additions];
           });
 
-          next.budgets = { ...imported.budgets, ...(current.budgets || {}) };[cite: 1]
+          next.budgets = { ...imported.budgets, ...(current.budgets || {}) };
           return next;
         });
 
-        flash(addedCount ? t("backup_restored", { n: addedCount }) : t("no_new"));[cite: 1]
+        flash(addedCount ? t("backup_restored", { n: addedCount }) : t("no_new"));
       } catch {
-        flash(t("bad_backup"));[cite: 1]
+        flash(t("bad_backup"));
       }
     };
 
-    reader.onerror = () => flash(t("bad_backup"));[cite: 1]
-    reader.readAsText(file);[cite: 1]
+    reader.onerror = () => flash(t("bad_backup"));
+    reader.readAsText(file);
   }
 
   function openAddExpense(type) {
-    const chosen = type || (page === "food" ? "food" : lastType);[cite: 1]
-    setEditing({ type: chosen, item: null });[cite: 1]
+    const chosen = type || (page === "food" ? "food" : lastType);
+    setEditing({ type: chosen, item: null });
   }
 
   function openAddMoney(person) {
     setMoneyEditing({
       type: "given",
       item: person ? { person } : null
-    });[cite: 1]
+    });
   }
 
   function saveExpense(type, item, keepOpen = false) {
     setData((current) => {
-      const arr = [...current[type]];[cite: 1]
-      const index = arr.findIndex((x) => x.id === item.id);[cite: 1]
+      const arr = [...current[type]];
+      const index = arr.findIndex((x) => x.id === item.id);
 
-      if (index >= 0) arr[index] = item;[cite: 1]
-      else arr.push({ ...item, id: Date.now() });[cite: 1]
+      if (index >= 0) arr[index] = item;
+      else arr.push({ ...item, id: Date.now() });
 
-      return { ...current, [type]: arr };[cite: 1]
+      return { ...current, [type]: arr };
     });
 
-    setLastType(type);[cite: 1]
+    setLastType(type);
 
     if (!item.id) {
-      const { id, ...rest } = item;[cite: 1]
-      const remembered = { type, item: rest };[cite: 1]
-      setLastExpense(remembered);[cite: 1]
+      const { id, ...rest } = item;
+      const remembered = { type, item: rest };
+      setLastExpense(remembered);
       try {
-        localStorage.setItem(LAST_EXPENSE_KEY, JSON.stringify(remembered));[cite: 1]
-        localStorage.setItem(LAST_TYPE_KEY, type);[cite: 1]
+        localStorage.setItem(LAST_EXPENSE_KEY, JSON.stringify(remembered));
+        localStorage.setItem(LAST_TYPE_KEY, type);
       } catch {
         /* ignore */
       }
     }
 
-    if (!keepOpen) setEditing(null);[cite: 1]
-    flash(t("saved"));[cite: 1]
+    if (!keepOpen) setEditing(null);
+    flash(t("saved"));
   }
 
   function saveMultipleExpenses(type, items, keepOpen = false) {
@@ -1009,65 +1009,65 @@ function App() {
   }
 
   function repeatLast() {
-    if (!lastExpense) return;[cite: 1]
-    const { type, item } = lastExpense;[cite: 1]
-    const copy = { ...item, date: today() };[cite: 1]
-    if (type === "food") copy.meal = mealByTime();[cite: 1]
-    if (type === "rent") copy.month = today().slice(0, 7);[cite: 1]
-    saveExpense(type, copy);[cite: 1]
+    if (!lastExpense) return;
+    const { type, item } = lastExpense;
+    const copy = { ...item, date: today() };
+    if (type === "food") copy.meal = mealByTime();
+    if (type === "rent") copy.month = today().slice(0, 7);
+    saveExpense(type, copy);
   }
 
   function saveMoneyTransaction(item) {
-    const amount = Number(item.amount || 0);[cite: 1]
-    const person = item.person.trim();[cite: 1]
+    const amount = Number(item.amount || 0);
+    const person = item.person.trim();
 
-    if (!person || amount <= 0) return;[cite: 1]
+    if (!person || amount <= 0) return;
 
     if (item.type === "returned") {
-      const currentBalance = getPersonBalance(data.money, person, item.id);[cite: 1]
+      const currentBalance = getPersonBalance(data.money, person, item.id);
 
       if (amount > currentBalance) {
-        flash(`${t("avail_bal")}: ${money(currentBalance)}`);[cite: 1]
+        flash(`${t("avail_bal")}: ${money(currentBalance)}`);
         return;
       }
     }
 
     setData((current) => {
-      const arr = [...current.money];[cite: 1]
-      const index = arr.findIndex((x) => x.id === item.id);[cite: 1]
-      const transaction = { ...item, person, amount };[cite: 1]
+      const arr = [...current.money];
+      const index = arr.findIndex((x) => x.id === item.id);
+      const transaction = { ...item, person, amount };
 
-      if (index >= 0) arr[index] = transaction;[cite: 1]
-      else arr.push({ ...transaction, id: Date.now() });[cite: 1]
+      if (index >= 0) arr[index] = transaction;
+      else arr.push({ ...transaction, id: Date.now() });
 
-      return { ...current, money: arr };[cite: 1]
+      return { ...current, money: arr };
     });
 
-    setMoneyEditing(null);[cite: 1]
-    flash(t("saved"));[cite: 1]
+    setMoneyEditing(null);
+    flash(t("saved"));
   }
 
   function saveBudget(monthKey, amount, asDefault) {
-    const value = Number(amount);[cite: 1]
+    const value = Number(amount);
     setData((current) => {
-      const budgets = { ...(current.budgets || {}) };[cite: 1]
-      const key = asDefault ? "default" : monthKey;[cite: 1]
-      if (value > 0) budgets[key] = value;[cite: 1]
-      else delete budgets[key];[cite: 1]
-      return { ...current, budgets };[cite: 1]
+      const budgets = { ...(current.budgets || {}) };
+      const key = asDefault ? "default" : monthKey;
+      if (value > 0) budgets[key] = value;
+      else delete budgets[key];
+      return { ...current, budgets };
     });
-    setBudgetEditing(null);[cite: 1]
-    flash(t("saved"));[cite: 1]
+    setBudgetEditing(null);
+    flash(t("saved"));
   }
 
   function remove(type, id) {
-    const item = data[type].find((x) => x.id === id);[cite: 1]
-    if (!item) return;[cite: 1]
+    const item = data[type].find((x) => x.id === id);
+    if (!item) return;
 
     setData((current) => ({
       ...current,
       [type]: current[type].filter((x) => x.id !== id)
-    }));[cite: 1]
+    }));
 
     flash(t("expense_deleted"), {
       label: t("undo"),
@@ -1077,17 +1077,17 @@ function App() {
             ? current
             : { ...current, [type]: [...current[type], item] }
         )
-    });[cite: 1]
+    });
   }
 
   function removeMoney(id) {
-    const item = data.money.find((x) => x.id === id);[cite: 1]
-    if (!item) return;[cite: 1]
+    const item = data.money.find((x) => x.id === id);
+    if (!item) return;
 
     setData((current) => ({
       ...current,
       money: current.money.filter((x) => x.id !== id)
-    }));[cite: 1]
+    }));
 
     flash(t("money_deleted"), {
       label: t("undo"),
@@ -1097,26 +1097,26 @@ function App() {
             ? current
             : { ...current, money: [...current.money, item] }
         )
-    });[cite: 1]
+    });
   }
 
   function clearAll() {
-    setDrawerOpen(false);[cite: 1]
+    setDrawerOpen(false);
 
-    if (!window.confirm(t("confirm_all"))) return;[cite: 1]
+    if (!window.confirm(t("confirm_all"))) return;
 
-    const snapshot = data;[cite: 1]
-    setData({ ...starter });[cite: 1]
-    if (page === "month") go("months", null);[cite: 1]
+    const snapshot = data;
+    setData({ ...starter });
+    if (page === "month") go("months", null);
 
     flash(t("all_deleted"), {
       label: t("undo"),
       run: () => setData(snapshot)
-    });[cite: 1]
+    });
   }
 
   function downloadMonthPdf(monthKey) {
-    const expenses = all.filter((e) => getMonthKey(e.date) === monthKey);[cite: 1]
+    const expenses = all.filter((e) => getMonthKey(e.date) === monthKey);
     printHtml(
       buildBillHtml({
         monthKey,
@@ -1124,33 +1124,33 @@ function App() {
         budget: getBudget(data.budgets, monthKey),
         t
       })
-    );[cite: 1]
+    );
   }
 
   const heading = {
-    dashboard: { eyebrow: t("eb_overview"), title: t("ttl_dashboard"), sub: t("sub_dashboard") },[cite: 1]
-    months: { eyebrow: t("eb_reports"), title: t("ttl_months"), sub: t("sub_months") },[cite: 1]
+    dashboard: { eyebrow: t("eb_overview"), title: t("ttl_dashboard"), sub: t("sub_dashboard") },
+    months: { eyebrow: t("eb_reports"), title: t("ttl_months"), sub: t("sub_months") },
     month: {
       eyebrow: t("eb_bill"),
       title: selectedMonth ? getMonthLabel(selectedMonth) : t("ttl_months"),
       sub: t("sub_month")
-    },[cite: 1]
-    expenses: { eyebrow: t("eb_records"), title: t("ttl_expenses"), sub: t("sub_expenses") },[cite: 1]
-    food: { eyebrow: t("eb_category"), title: t("ttl_food"), sub: t("sub_food") },[cite: 1]
-    money: { eyebrow: t("eb_ledger"), title: t("ttl_money"), sub: t("sub_money") }[cite: 1]
+    },
+    expenses: { eyebrow: t("eb_records"), title: t("ttl_expenses"), sub: t("sub_expenses") },
+    food: { eyebrow: t("eb_category"), title: t("ttl_food"), sub: t("sub_food") },
+    money: { eyebrow: t("eb_ledger"), title: t("ttl_money"), sub: t("sub_money") }
   }[page];
 
   const tabs = [
-    ["dashboard", t("tab_dashboard"), <LayoutDashboard key="d" />],[cite: 1]
-    ["months", t("tab_months"), <CalendarDays key="m" />],[cite: 1]
-    ["expenses", t("tab_expenses"), <ReceiptText key="e" />],[cite: 1]
-    ["food", t("tab_food"), <Utensils key="f" />],[cite: 1]
-    ["money", t("tab_money"), <Users key="u" />][cite: 1]
+    ["dashboard", t("tab_dashboard"), <LayoutDashboard key="d" />],
+    ["months", t("tab_months"), <CalendarDays key="m" />],
+    ["expenses", t("tab_expenses"), <ReceiptText key="e" />],
+    ["food", t("tab_food"), <Utensils key="f" />],
+    ["money", t("tab_money"), <Users key="u" />]
   ];
 
-  const modalOpen = Boolean(editing || moneyEditing || budgetEditing || drawerOpen);[cite: 1]
-  const isMoneyPage = page === "money";[cite: 1]
-  const currentKey = today().slice(0, 7);[cite: 1]
+  const modalOpen = Boolean(editing || moneyEditing || budgetEditing || drawerOpen);
+  const isMoneyPage = page === "money";
+  const currentKey = today().slice(0, 7);
 
   return (
     <LangCtx.Provider value={langValue}>
@@ -1356,29 +1356,29 @@ function App() {
 }
 
 function getPersonBalance(transactions, person, excludeId = null) {
-  const normalized = person.trim().toLowerCase();[cite: 1]
+  const normalized = person.trim().toLowerCase();
 
   return transactions.reduce((balance, transaction) => {
-    if (transaction.id === excludeId) return balance;[cite: 1]
-    if (transaction.person?.trim().toLowerCase() !== normalized) return balance;[cite: 1]
+    if (transaction.id === excludeId) return balance;
+    if (transaction.person?.trim().toLowerCase() !== normalized) return balance;
 
     return (
       balance +
       (transaction.type === "given"
         ? Number(transaction.amount || 0)
         : -Number(transaction.amount || 0))
-    );[cite: 1]
+    );
   }, 0);
 }
 
 function getPersonStats(transactions, person) {
-  const normalized = person.trim().toLowerCase();[cite: 1]
+  const normalized = person.trim().toLowerCase();
   const list = transactions.filter(
     (x) => x.person?.trim().toLowerCase() === normalized
-  );[cite: 1]
+  );
 
-  const given = sumBy(list.filter((x) => x.type === "given"));[cite: 1]
-  const returned = sumBy(list.filter((x) => x.type === "returned"));[cite: 1]
+  const given = sumBy(list.filter((x) => x.type === "given"));
+  const returned = sumBy(list.filter((x) => x.type === "returned"));
 
   return {
     given,
@@ -1410,10 +1410,10 @@ function SideDrawer({
 
   useEffect(() => {
     function onKey(event) {
-      if (event.key === "Escape") onClose();[cite: 1]
+      if (event.key === "Escape") onClose();
     }
-    window.addEventListener("keydown", onKey);[cite: 1]
-    return () => window.removeEventListener("keydown", onKey);[cite: 1]
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   return (
@@ -1770,10 +1770,10 @@ function BudgetModal({ monthKey, current, onClose, onSave }) {
 
   useEffect(() => {
     function onKey(event) {
-      if (event.key === "Escape") onClose();[cite: 1]
+      if (event.key === "Escape") onClose();
     }
-    window.addEventListener("keydown", onKey);[cite: 1]
-    return () => window.removeEventListener("keydown", onKey);[cite: 1]
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   return (
@@ -2559,7 +2559,7 @@ function MoneyPage({ transactions, people, totals, onAdd, onEdit, onDelete }) {
             .sort(
               (a, b) =>
                 String(b.date).localeCompare(String(a.date)) ||
-                Number(b.id || 0) - Number(b.id || 0)
+                Number(b.id || 0) - Number(a.id || 0)
             )
             .map((transaction) => (
               <MoneyTransactionRow
@@ -2709,7 +2709,6 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveMultiple }) {
     type === "rent" ? "" : initial?.description || initial?.food || initial?.name || ""
   );
 
-  // New state for multi-selection and individual prices in Food category
   const [selectedFoodItems, setSelectedFoodItems] = useState(
     isEditing && type === "food" ? [{ name: initial.food, amount: initial.amount }] : []
   );
@@ -2725,10 +2724,10 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveMultiple }) {
 
   useEffect(() => {
     function onKey(event) {
-      if (event.key === "Escape") onClose();[cite: 1]
+      if (event.key === "Escape") onClose();
     }
-    window.addEventListener("keydown", onKey);[cite: 1]
-    return () => window.removeEventListener("keydown", onKey);[cite: 1]
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   function toggleFoodSelection(foodName) {
@@ -2737,7 +2736,7 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveMultiple }) {
       if (exists) {
         return prev.filter((i) => i.name !== foodName);
       } else {
-        return [...prev, { name: foodName, amount: 30 }]; // default initial price suggestion
+        return [...prev, { name: foodName, amount: 30 }];
       }
     });
   }
@@ -3135,53 +3134,53 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveMultiple }) {
 
 function MoneyModal({ initial, type, transactions, onClose, onSave }) {
   const t = useT();
-  const [kind, setKind] = useState(type || "given");[cite: 1]
-  const [person, setPerson] = useState(initial?.person || "");[cite: 1]
-  const [date, setDate] = useState(initial?.date || today());[cite: 1]
-  const [amount, setAmount] = useState(initial?.amount ?? "");[cite: 1]
-  const [error, setError] = useState("");[cite: 1]
+  const [kind, setKind] = useState(type || "given");
+  const [person, setPerson] = useState(initial?.person || "");
+  const [date, setDate] = useState(initial?.date || today());
+  const [amount, setAmount] = useState(initial?.amount ?? "");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     function onKey(event) {
-      if (event.key === "Escape") onClose();[cite: 1]
+      if (event.key === "Escape") onClose();
     }
-    window.addEventListener("keydown", onKey);[cite: 1]
-    return () => window.removeEventListener("keydown", onKey);[cite: 1]
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   const currentBalance = person.trim()
     ? getPersonBalance(transactions, person, initial?.id || null)
-    : 0;[cite: 1]
+    : 0;
 
-  const isEditing = Boolean(initial && initial.id);[cite: 1]
+  const isEditing = Boolean(initial && initial.id);
 
   function submit(event) {
-    event.preventDefault();[cite: 1]
-    const numericAmount = Number(amount);[cite: 1]
+    event.preventDefault();
+    const numericAmount = Number(amount);
 
     if (!person.trim()) {
-      setError(t("person_name"));[cite: 1]
+      setError(t("person_name"));
       return;
     }
 
     if (!numericAmount || numericAmount <= 0) {
-      setError(t("amount"));[cite: 1]
+      setError(t("amount"));
       return;
     }
 
     if (kind === "returned" && numericAmount > currentBalance) {
-      setError(`${t("avail_bal")}: ${money(currentBalance)}`);[cite: 1]
+      setError(`${t("avail_bal")}: ${money(currentBalance)}`);
       return;
     }
 
-    setError("");[cite: 1]
+    setError("");
     onSave({
       id: initial?.id,
       person: person.trim(),
       date,
       type: kind,
       amount: numericAmount
-    });[cite: 1]
+    });
   }
 
   return (
@@ -3202,8 +3201,8 @@ function MoneyModal({ initial, type, transactions, onClose, onSave }) {
             type="button"
             className={kind === "given" ? "selected" : ""}
             onClick={() => {
-              setKind("given");[cite: 1]
-              setError("");[cite: 1]
+              setKind("given");
+              setError("");
             }}
           >
             <ArrowDownLeft size={18} />
@@ -3214,8 +3213,8 @@ function MoneyModal({ initial, type, transactions, onClose, onSave }) {
             type="button"
             className={kind === "returned" ? "selected" : ""}
             onClick={() => {
-              setKind("returned");[cite: 1]
-              setError("");[cite: 1]
+              setKind("returned");
+              setError("");
             }}
           >
             <ArrowUpRight size={18} />
@@ -3232,8 +3231,8 @@ function MoneyModal({ initial, type, transactions, onClose, onSave }) {
               placeholder="Arun"
               value={person}
               onChange={(event) => {
-                setPerson(event.target.value);[cite: 1]
-                setError("");[cite: 1]
+                setPerson(event.target.value);
+                setError("");
               }}
               required
             />
@@ -3251,8 +3250,8 @@ function MoneyModal({ initial, type, transactions, onClose, onSave }) {
               autoFocus={Boolean(initial?.person)}
               value={amount}
               onChange={(event) => {
-                setAmount(event.target.value);[cite: 1]
-                setError("");[cite: 1]
+                setAmount(event.target.value);
+                setError("");
               }}
               required
             />
@@ -3265,8 +3264,8 @@ function MoneyModal({ initial, type, transactions, onClose, onSave }) {
                 key={value}
                 className={`chip ${Number(amount) === value ? "on" : ""}`}
                 onClick={() => {
-                  setAmount(String(value));[cite: 1]
-                  setError("");[cite: 1]
+                  setAmount(String(value));
+                  setError("");
                 }}
               >
                 ₹{value}
@@ -3303,4 +3302,4 @@ function MoneyModal({ initial, type, transactions, onClose, onSave }) {
   );
 }
 
-createRoot(document.getElementById("root")).render(<App />);[cite: 1]
+createRoot(document.getElementById("root")).render(<App />);
