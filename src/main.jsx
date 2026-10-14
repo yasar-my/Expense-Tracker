@@ -15,23 +15,24 @@ import {
   Bell,
   CalendarDays,
   Check,
-  ChevronDown,
   ChevronRight,
   CircleDollarSign,
   Coffee,
-  Database,
+  Download,
   Edit3,
   FileText,
+  Globe,
   History,
   LayoutDashboard,
+  Menu,
   Moon,
   Plus,
   ReceiptText,
   Repeat,
-  Settings,
   Sun,
   Target,
   Trash2,
+  Upload,
   Utensils,
   Users,
   WalletCards,
@@ -62,6 +63,7 @@ const I18N = {
     sub_month: "All expenses recorded in this month.", sub_expenses: "Every expense, newest first.",
     sub_food: "Meal-wise food spending.", sub_money: "Money given to you and what you have returned.",
     back: "Back", add_expense: "Add expense", add_money: "Add money", data: "Data", settings: "Settings",
+    menu: "Menu", data_backup: "Backup & restore",
     stored_device: "Stored on this device", download_backup: "Download backup", upload_backup: "Upload backup", delete_all: "Delete all data",
     quick_add: "Quick add", repeat: "Repeat", travel: "Travel", food: "Food", snacks: "Snacks", rent: "Rent", rent_full: "Room Rent", other: "Other",
     total_spent: "Total spent", total_spent_sub: "Rent, travel, food, snacks & other", this_month: "This month",
@@ -123,6 +125,7 @@ const I18N = {
     sub_month: "இந்த மாதத்தின் அனைத்து செலவுகள்.", sub_expenses: "புதியவை முதலில்.",
     sub_food: "வேளை வாரியான உணவு செலவு.", sub_money: "உங்களுக்கு கொடுத்த பணம் மற்றும் திருப்பியது.",
     back: "பின்", add_expense: "செலவு சேர்", add_money: "பணம் சேர்", data: "தரவு", settings: "அமைப்புகள்",
+    menu: "மெனு", data_backup: "காப்பு & மீட்பு",
     stored_device: "இந்த சாதனத்தில் சேமிக்கப்பட்டது", download_backup: "காப்புப்பிரதி பதிவிறக்கு", upload_backup: "காப்புப்பிரதி பதிவேற்று", delete_all: "அனைத்து தரவையும் நீக்கு",
     quick_add: "விரைவு சேர்", repeat: "மீண்டும்", travel: "பயணம்", food: "உணவு", snacks: "சிற்றுண்டி", rent: "வாடகை", rent_full: "அறை வாடகை", other: "மற்றவை",
     total_spent: "மொத்த செலவு", total_spent_sub: "வாடகை, பயணம், உணவு, சிற்றுண்டி & மற்றவை", this_month: "இந்த மாதம்",
@@ -184,6 +187,7 @@ const I18N = {
     sub_month: "इस महीने के सभी खर्चे।", sub_expenses: "सबसे नए पहले।",
     sub_food: "भोजन के अनुसार खर्च।", sub_money: "आपको दिया गया पैसा और लौटाया गया पैसा।",
     back: "वापस", add_expense: "खर्चा जोड़ें", add_money: "पैसे जोड़ें", data: "डेटा", settings: "सेटिंग्स",
+    menu: "मेनू", data_backup: "बैकअप और रीस्टोर",
     stored_device: "इस डिवाइस पर सहेजा गया", download_backup: "बैकअप डाउनलोड", upload_backup: "बैकअप अपलोड", delete_all: "सारा डेटा हटाएं",
     quick_add: "झटपट जोड़ें", repeat: "दोहराएं", travel: "यात्रा", food: "खाना", snacks: "नाश्ता", rent: "किराया", rent_full: "कमरे का किराया", other: "अन्य",
     total_spent: "कुल खर्च", total_spent_sub: "किराया, यात्रा, खाना, नाश्ता और अन्य", this_month: "इस महीने",
@@ -493,7 +497,20 @@ const SUGGESTIONS = {
   other: ["Soap", "Detergent", "Toothpaste", "Hanger"]
 };
 
+/* Quick amount chips for each category / meal */
 const QUICK_AMOUNTS = [10, 20, 50, 100, 200, 500];
+
+const QUICK_BY_KIND = {
+  travel: [10, 20, 30, 40, 50, 100, 200],
+  Breakfast: [30, 40, 50, 60, 70, 80],
+  Lunch: [40, 50, 60, 70, 80, 90, 100],
+  Dinner: [40, 50, 60, 70, 80, 90, 100],
+  snacks: [10, 20, 30, 40, 50],
+  other: [20, 50, 100, 200, 500],
+  rent: [2000, 3000, 4000, 5000, 6000, 7000, 8000]
+};
+
+const chipLabel = (v) => (v >= 1000 ? `₹${v / 1000}k` : `₹${v}`);
 
 function mealByTime() {
   const hour = new Date().getHours();
@@ -609,10 +626,9 @@ function App() {
   const [editing, setEditing] = useState(null);
   const [moneyEditing, setMoneyEditing] = useState(null);
   const [budgetEditing, setBudgetEditing] = useState(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [lastType, setLastType] = useState(loadLastType);
   const [lastExpense, setLastExpense] = useState(loadLastExpense);
-  const [dataMenu, setDataMenu] = useState(false);
   const [toast, setToast] = useState(null);
   const fileInputRef = useRef(null);
   const toastTimer = useRef(null);
@@ -714,11 +730,10 @@ function App() {
         setDepth(0);
       }
 
-      setDataMenu(false);
+      setDrawerOpen(false);
       setEditing(null);
       setMoneyEditing(null);
       setBudgetEditing(null);
-      setSettingsOpen(false);
       window.scrollTo({ top: 0 });
     }
 
@@ -727,7 +742,7 @@ function App() {
   }, []);
 
   function go(nextPage, month = null) {
-    setDataMenu(false);
+    setDrawerOpen(false);
     window.scrollTo({ top: 0 });
 
     if (nextPage === page && month === selectedMonth) return;
@@ -868,14 +883,14 @@ function App() {
     link.remove();
     URL.revokeObjectURL(url);
 
-    setDataMenu(false);
+    setDrawerOpen(false);
     flash(t("backup_done"));
   }
 
   function handleBackupUpload(event) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    setDataMenu(false);
+    setDrawerOpen(false);
 
     if (!file) return;
 
@@ -1085,7 +1100,7 @@ function App() {
   }
 
   function clearAll() {
-    setDataMenu(false);
+    setDrawerOpen(false);
 
     if (!window.confirm(t("confirm_all"))) return;
 
@@ -1134,131 +1149,13 @@ function App() {
     ["money", t("tab_money"), <Users key="u" />]
   ];
 
-  const modalOpen = Boolean(editing || moneyEditing || budgetEditing || settingsOpen);
+  const modalOpen = Boolean(editing || moneyEditing || budgetEditing || drawerOpen);
   const isMoneyPage = page === "money";
   const currentKey = today().slice(0, 7);
 
   return (
     <LangCtx.Provider value={langValue}>
       <div className="app">
-        <header className="topbar">
-          <div className="topbar-inner">
-            <button
-              type="button"
-              className="brand"
-              onClick={() => navigate("dashboard")}
-              aria-label={t("ttl_dashboard")}
-            >
-              <span className="brand-mark">
-                <WalletCards size={18} />
-              </span>
-              <span className="brand-name">RoomLife</span>
-            </button>
-
-            <nav className="tabs" aria-label="Main navigation">
-              {tabs.map(([key, label, icon]) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={`tab ${
-                    page === key || (key === "months" && page === "month") ? "active" : ""
-                  }`}
-                  onClick={() => navigate(key)}
-                >
-                  {icon}
-                  <span>{label}</span>
-                </button>
-              ))}
-            </nav>
-
-            <div className="topbar-actions">
-              {isMoneyPage ? (
-                <button className="btn btn-primary" onClick={() => openAddMoney()}>
-                  <Plus size={16} />
-                  <span className="btn-text">{t("add_money")}</span>
-                </button>
-              ) : (
-                <button className="btn btn-primary" onClick={() => openAddExpense()}>
-                  <Plus size={16} />
-                  <span className="btn-text">{t("add_expense")}</span>
-                </button>
-              )}
-
-              <button
-                type="button"
-                className="btn btn-outline theme-btn"
-                onClick={() =>
-                  setPrefs((p) => ({ ...p, theme: p.theme === "dark" ? "light" : "dark" }))
-                }
-                aria-label={t("theme")}
-                title={t("theme")}
-              >
-                {prefs.theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-              </button>
-
-              <div className="data-menu-wrap">
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={() => setDataMenu((open) => !open)}
-                  aria-expanded={dataMenu}
-                  aria-label={t("data")}
-                >
-                  <Database size={16} />
-                  <span className="btn-text">{t("data")}</span>
-                  <ChevronDown size={14} className="btn-text" />
-                </button>
-
-                {dataMenu && (
-                  <>
-                    <div className="menu-backdrop" onClick={() => setDataMenu(false)} />
-                    <div className="data-menu">
-                      <div className="menu-note">
-                        <span className="dot" />
-                        {t("stored_device")}
-                      </div>
-
-                      <button
-                        type="button"
-                        className="menu-item"
-                        onClick={() => {
-                          setDataMenu(false);
-                          setSettingsOpen(true);
-                        }}
-                      >
-                        <Settings size={15} />
-                        {t("settings")}
-                      </button>
-
-                      <button type="button" className="menu-item" onClick={downloadBackup}>
-                        <ArrowDownLeft size={15} />
-                        {t("download_backup")}
-                      </button>
-
-                      <label className="menu-item">
-                        <ArrowUpRight size={15} />
-                        {t("upload_backup")}
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="application/json,.json"
-                          onChange={handleBackupUpload}
-                          aria-label={t("upload_backup")}
-                        />
-                      </label>
-
-                      <button type="button" className="menu-item danger" onClick={clearAll}>
-                        <Trash2 size={15} />
-                        {t("delete_all")}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </header>
-
         <main>
           <div className="page-head">
             <div className="page-top">
@@ -1354,6 +1251,35 @@ function App() {
           <footer>{t("footer")}</footer>
         </main>
 
+        {/* ---------- Fixed bottom bar (never scrolls) ---------- */}
+        <nav className="bottombar" aria-label="Main navigation">
+          <div className="bottombar-inner">
+            {tabs.map(([key, label, icon]) => (
+              <button
+                key={key}
+                type="button"
+                className={`tab ${
+                  page === key || (key === "months" && page === "month") ? "active" : ""
+                }`}
+                onClick={() => navigate(key)}
+              >
+                {icon}
+                <span>{label}</span>
+              </button>
+            ))}
+
+            <button
+              type="button"
+              className={`tab menu-tab ${drawerOpen ? "active" : ""}`}
+              onClick={() => setDrawerOpen(true)}
+              aria-label={t("menu")}
+            >
+              <Menu />
+              <span>{t("menu")}</span>
+            </button>
+          </div>
+        </nav>
+
         {!modalOpen && (
           <button
             type="button"
@@ -1394,12 +1320,16 @@ function App() {
           />
         )}
 
-        {settingsOpen && (
-          <SettingsModal
+        {drawerOpen && (
+          <SideDrawer
             prefs={prefs}
             setPrefs={setPrefs}
             onToggleReminder={toggleReminder}
-            onClose={() => setSettingsOpen(false)}
+            onDownload={downloadBackup}
+            onUpload={handleBackupUpload}
+            onClear={clearAll}
+            fileInputRef={fileInputRef}
+            onClose={() => setDrawerOpen(false)}
           />
         )}
 
@@ -1464,7 +1394,171 @@ function getPersonStats(transactions, person) {
 }
 
 /* =========================================================
-   New feature components
+   Side drawer (language, theme, reminder, backup)
+   ========================================================= */
+
+function SideDrawer({
+  prefs,
+  setPrefs,
+  onToggleReminder,
+  onDownload,
+  onUpload,
+  onClear,
+  fileInputRef,
+  onClose
+}) {
+  const t = useT();
+
+  useEffect(() => {
+    function onKey(event) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="drawer-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <aside className="drawer" role="dialog" aria-label={t("menu")}>
+        <div className="drawer-head">
+          <div className="drawer-brand">
+            <span className="brand-mark">
+              <WalletCards size={18} />
+            </span>
+            <div>
+              <b>RoomLife</b>
+              <small>{t("stored_device")}</small>
+            </div>
+          </div>
+          <button className="icon-btn" onClick={onClose} aria-label="Close">
+            <X />
+          </button>
+        </div>
+
+        <div className="drawer-body">
+          {/* Language */}
+          <section className="drawer-section">
+            <h3>
+              <Globe size={14} /> {t("language")}
+            </h3>
+            <div className="lang-list">
+              {[
+                ["en", "English", "English"],
+                ["ta", "தமிழ்", "Tamil"],
+                ["hi", "हिन्दी", "Hindi"]
+              ].map(([code, name, sub]) => (
+                <button
+                  type="button"
+                  key={code}
+                  className={`lang-option ${prefs.lang === code ? "on" : ""}`}
+                  onClick={() => setPrefs((p) => ({ ...p, lang: code }))}
+                >
+                  <span>
+                    <b>{name}</b>
+                    <small>{sub}</small>
+                  </span>
+                  {prefs.lang === code && <Check size={16} />}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Backup / restore */}
+          <section className="drawer-section">
+            <h3>
+              <Download size={14} /> {t("data_backup")}
+            </h3>
+            <div className="drawer-list">
+              <button type="button" className="drawer-item" onClick={onDownload}>
+                <Download size={17} />
+                <span>{t("download_backup")}</span>
+              </button>
+
+              <label className="drawer-item">
+                <Upload size={17} />
+                <span>{t("upload_backup")}</span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={onUpload}
+                  aria-label={t("upload_backup")}
+                />
+              </label>
+
+              <button type="button" className="drawer-item danger" onClick={onClear}>
+                <Trash2 size={17} />
+                <span>{t("delete_all")}</span>
+              </button>
+            </div>
+          </section>
+
+          {/* Theme */}
+          <section className="drawer-section">
+            <h3>
+              {prefs.theme === "dark" ? <Moon size={14} /> : <Sun size={14} />} {t("theme")}
+            </h3>
+            <div className="chips set-chips">
+              {[
+                ["light", t("light"), <Sun key="s" size={14} />],
+                ["dark", t("dark"), <Moon key="m" size={14} />]
+              ].map(([code, name, icon]) => (
+                <button
+                  type="button"
+                  key={code}
+                  className={`chip chip-icon ${prefs.theme === code ? "on" : ""}`}
+                  onClick={() => setPrefs((p) => ({ ...p, theme: code }))}
+                >
+                  {icon} {name}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Reminder */}
+          <section className="drawer-section">
+            <h3>
+              <Bell size={14} /> {t("reminders")}
+            </h3>
+            <div className="chips set-chips">
+              <button
+                type="button"
+                className={`chip ${prefs.reminderOn ? "on" : ""}`}
+                onClick={() => onToggleReminder(true)}
+              >
+                {t("reminder_on")}
+              </button>
+              <button
+                type="button"
+                className={`chip ${!prefs.reminderOn ? "on" : ""}`}
+                onClick={() => onToggleReminder(false)}
+              >
+                {t("reminder_off")}
+              </button>
+            </div>
+
+            {prefs.reminderOn && (
+              <label className="drawer-time">
+                {t("reminder_time")}
+                <input
+                  type="time"
+                  value={prefs.reminderTime}
+                  onChange={(e) =>
+                    setPrefs((p) => ({ ...p, reminderTime: e.target.value || "21:00" }))
+                  }
+                />
+              </label>
+            )}
+            <p className="hint">{t("reminder_note")}</p>
+          </section>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+/* =========================================================
+   Feature components
    ========================================================= */
 
 function BudgetCard({ monthKey, spent, budget, onEdit }) {
@@ -1761,114 +1855,6 @@ function BudgetModal({ monthKey, current, onClose, onSave }) {
   );
 }
 
-function SettingsModal({ prefs, setPrefs, onToggleReminder, onClose }) {
-  const t = useT();
-
-  useEffect(() => {
-    function onKey(event) {
-      if (event.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <div className="modal-head">
-          <div>
-            <span className="eyebrow">{t("settings").toUpperCase()}</span>
-            <h2>{t("settings")}</h2>
-          </div>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
-            <X />
-          </button>
-        </div>
-
-        <div className="settings-body">
-          <div className="set-group">
-            <span className="set-label">{t("language")}</span>
-            <div className="chips set-chips">
-              {[
-                ["en", "English"],
-                ["ta", "தமிழ்"],
-                ["hi", "हिन्दी"]
-              ].map(([code, name]) => (
-                <button
-                  type="button"
-                  key={code}
-                  className={`chip ${prefs.lang === code ? "on" : ""}`}
-                  onClick={() => setPrefs((p) => ({ ...p, lang: code }))}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="set-group">
-            <span className="set-label">{t("theme")}</span>
-            <div className="chips set-chips">
-              {[
-                ["light", t("light"), <Sun key="s" size={14} />],
-                ["dark", t("dark"), <Moon key="m" size={14} />]
-              ].map(([code, name, icon]) => (
-                <button
-                  type="button"
-                  key={code}
-                  className={`chip chip-icon ${prefs.theme === code ? "on" : ""}`}
-                  onClick={() => setPrefs((p) => ({ ...p, theme: code }))}
-                >
-                  {icon} {name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="set-group">
-            <span className="set-label">
-              <Bell size={14} /> {t("reminders")}
-            </span>
-            <div className="chips set-chips">
-              <button
-                type="button"
-                className={`chip ${prefs.reminderOn ? "on" : ""}`}
-                onClick={() => onToggleReminder(true)}
-              >
-                {t("reminder_on")}
-              </button>
-              <button
-                type="button"
-                className={`chip ${!prefs.reminderOn ? "on" : ""}`}
-                onClick={() => onToggleReminder(false)}
-              >
-                {t("reminder_off")}
-              </button>
-            </div>
-
-            {prefs.reminderOn && (
-              <label>
-                {t("reminder_time")}
-                <input
-                  type="time"
-                  value={prefs.reminderTime}
-                  onChange={(e) => setPrefs((p) => ({ ...p, reminderTime: e.target.value || "21:00" }))}
-                />
-              </label>
-            )}
-            <p className="hint">{t("reminder_note")}</p>
-          </div>
-
-          <button className="save-btn" type="button" onClick={onClose}>
-            <Check size={18} />
-            {t("done")}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* =========================================================
    Pages
    ========================================================= */
@@ -2016,11 +2002,11 @@ function MonthDetail({
               disabled={!expenses.length}
             >
               <FileText size={15} />
-              <span className="btn-text-keep">{t("pdf")}</span>
+              <span>{t("pdf")}</span>
             </button>
             <button type="button" className="btn btn-outline" onClick={onBack}>
               <ArrowLeft size={15} />
-              <span className="btn-text-keep">{t("all_months")}</span>
+              <span>{t("all_months")}</span>
             </button>
           </div>
         </div>
@@ -2366,7 +2352,7 @@ function Dashboard({
             {t("view_history")}
           </button>
           <button className="btn btn-primary" onClick={onMoneyAdd}>
-            <Plus size={15} /> <span className="btn-text-keep">{t("add_money")}</span>
+            <Plus size={15} /> <span>{t("add_money")}</span>
           </button>
         </div>
       </div>
@@ -2816,6 +2802,9 @@ function ExpenseModal({ initial, type, onClose, onSave }) {
 
   const suggestions = SUGGESTIONS[kind] || [];
 
+  /* amount chips depend on category (and meal for food) */
+  const quickAmounts = QUICK_BY_KIND[kind === "food" ? meal : kind] || QUICK_AMOUNTS;
+
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal">
@@ -2852,6 +2841,17 @@ function ExpenseModal({ initial, type, onClose, onSave }) {
         )}
 
         <form ref={formRef} onSubmit={submit}>
+          {kind === "food" && (
+            <label>
+              {t("meal_type")}
+              <select value={meal} onChange={(event) => setMeal(event.target.value)}>
+                <option value="Breakfast">{t("Breakfast")}</option>
+                <option value="Lunch">{t("Lunch")}</option>
+                <option value="Dinner">{t("Dinner")}</option>
+              </select>
+            </label>
+          )}
+
           <label>
             {t("amount")}
             <input
@@ -2870,14 +2870,14 @@ function ExpenseModal({ initial, type, onClose, onSave }) {
           </label>
 
           <div className="chips">
-            {QUICK_AMOUNTS.map((value) => (
+            {quickAmounts.map((value) => (
               <button
                 type="button"
                 key={value}
                 className={`chip ${Number(amount) === value ? "on" : ""}`}
                 onClick={() => setAmount(String(value))}
               >
-                ₹{value}
+                {chipLabel(value)}
               </button>
             ))}
           </div>
@@ -2894,24 +2894,14 @@ function ExpenseModal({ initial, type, onClose, onSave }) {
           )}
 
           {kind === "food" && (
-            <>
-              <label>
-                {t("meal_type")}
-                <select value={meal} onChange={(event) => setMeal(event.target.value)}>
-                  <option value="Breakfast">{t("Breakfast")}</option>
-                  <option value="Lunch">{t("Lunch")}</option>
-                  <option value="Dinner">{t("Dinner")}</option>
-                </select>
-              </label>
-              <label>
-                {t("what_eat")}
-                <input
-                  placeholder="Idly, Meals, Dosa"
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                />
-              </label>
-            </>
+            <label>
+              {t("what_eat")}
+              <input
+                placeholder="Idly, Meals, Dosa"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+              />
+            </label>
           )}
 
           {kind === "snacks" && (
