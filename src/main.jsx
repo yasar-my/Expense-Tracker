@@ -37,7 +37,11 @@ import {
   Users,
   WalletCards,
   X,
-  TrainFront
+  TrainFront,
+  Mic,
+  Sparkles,
+  PiggyBank,
+  Tags
 } from "lucide-react";
 import "./styles.css";
 
@@ -53,6 +57,8 @@ const REMIND_KEY = "roomlife-last-reminded";
    ========================================================= */
 const LOCALES = { en: "en-IN", ta: "ta-IN", hi: "hi-IN" };
 let activeLang = "en";
+let activeCurrency = "INR";
+let activeNumberFormat = "en-IN";
 
 const I18N = {
   en: {
@@ -271,7 +277,16 @@ function dateKey(offsetDays = 0) {
 }
 
 const today = () => dateKey(0);
-const money = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
+const money = (n) => {
+  const value = Number(n || 0);
+  const currency = activeCurrency || "INR";
+  const locale = activeNumberFormat || LOCALES[activeLang] || "en-IN";
+  try {
+    return new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
+  } catch {
+    return `${currency} ${value.toLocaleString(locale)}`;
+  }
+};
 const sumBy = (items) => items.reduce((t, i) => t + Number(i.amount || 0), 0);
 
 const starter = {
@@ -281,7 +296,9 @@ const starter = {
   rent: [],
   other: [],
   money: [],
-  budgets: {}
+  budgets: {},
+  categoryBudgets: {},
+  savingsGoals: []
 };
 
 function cleanBudgets(b) {
@@ -309,7 +326,9 @@ function loadData() {
       rent: Array.isArray(saved.rent) ? saved.rent : [],
       other: Array.isArray(saved.other) ? saved.other : [],
       money: Array.isArray(saved.money) ? saved.money : [],
-      budgets: cleanBudgets(saved.budgets)
+      budgets: cleanBudgets(saved.budgets),
+      categoryBudgets: saved.categoryBudgets && typeof saved.categoryBudgets === "object" ? saved.categoryBudgets : {},
+      savingsGoals: Array.isArray(saved.savingsGoals) ? saved.savingsGoals : []
     };
   } catch {
     return starter;
@@ -339,7 +358,10 @@ function loadPrefs() {
     theme: window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",
     lang: "en",
     reminderOn: false,
-    reminderTime: "21:00"
+    reminderTime: "21:00",
+    currency: "INR",
+    numberFormat: "en-IN",
+    autoBackup: true
   };
   try {
     return { ...base, ...JSON.parse(localStorage.getItem(PREF_KEY) || "{}") };
@@ -369,6 +391,8 @@ function normalizeBackupData(imported) {
   });
 
   normalized.budgets = cleanBudgets(imported.budgets);
+  normalized.categoryBudgets = imported.categoryBudgets && typeof imported.categoryBudgets === "object" ? imported.categoryBudgets : {};
+  normalized.savingsGoals = Array.isArray(imported.savingsGoals) ? imported.savingsGoals : [];
   return normalized;
 }
 
@@ -383,7 +407,9 @@ function getItemFingerprint(item) {
     month: item.month || "",
     category: item.category || "",
     person: item.person || "",
-    type: item.type || ""
+    type: item.type || "",
+    notes: item.notes || "",
+    tags: item.tags || []
   });
 }
 
@@ -627,6 +653,7 @@ function App() {
   const [prefs, setPrefs] = useState(loadPrefs);
   const [page, setPage] = useState("dashboard");
   const [selectedMonth, setSelectedMonth] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
   const [depth, setDepth] = useState(0);
   const [editing, setEditing] = useState(null);
   const [moneyEditing, setMoneyEditing] = useState(null);
@@ -641,12 +668,21 @@ function App() {
   dataRef.current = data;
 
   activeLang = prefs.lang;
+  activeCurrency = prefs.currency || "INR";
+  activeNumberFormat = prefs.numberFormat || LOCALES[prefs.lang] || "en-IN";
   const t = useMemo(() => (k, v) => translate(prefs.lang, k, v), [prefs.lang]);
   const langValue = useMemo(() => ({ lang: prefs.lang, t }), [prefs.lang, t]);
 
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify(data));
-  }, [data]);
+    if (prefs.autoBackup !== false) {
+      try {
+        localStorage.setItem(`${KEY}-auto-backup`, JSON.stringify({ savedAt: new Date().toISOString(), data }));
+      } catch (error) {
+        console.warn("RoomLife automatic backup could not be saved", error);
+      }
+    }
+  }, [data, prefs.autoBackup]);
 
   useEffect(() => {
     try {
@@ -938,6 +974,11 @@ function App() {
           });
 
           next.budgets = { ...imported.budgets, ...(current.budgets || {}) };
+          next.categoryBudgets = { ...(imported.categoryBudgets || {}), ...(current.categoryBudgets || {}) };
+          next.savingsGoals = [...(current.savingsGoals || [])];
+          (imported.savingsGoals || []).forEach((goal) => {
+            if (goal && goal.id && !next.savingsGoals.some((existing) => existing.id === goal.id)) next.savingsGoals.push(goal);
+          });
           return next;
         });
 
@@ -1206,6 +1247,13 @@ function App() {
               daily={daily}
               monthlyBills={monthlyBills}
               budgets={data.budgets}
+              categoryBudgets={data.categoryBudgets || {}}
+              savingsGoals={data.savingsGoals || []}
+              onSetCategoryBudget={(category, amount) => setData((current) => ({ ...current, categoryBudgets: { ...(current.categoryBudgets || {}), [category]: Number(amount) || 0 } }))}
+              onAddSavingsGoal={(goal) => setData((current) => ({ ...current, savingsGoals: [...(current.savingsGoals || []), goal] }))}
+              onUpdateSavingsGoal={(goalId, amount) => setData((current) => ({ ...current, savingsGoals: (current.savingsGoals || []).map((goal) => goal.id === goalId ? { ...goal, saved: Number(amount) || 0 } : goal) }))}
+              onDeleteSavingsGoal={(goalId) => setData((current) => ({ ...current, savingsGoals: (current.savingsGoals || []).filter((goal) => goal.id !== goalId) }))}
+              onDaySelect={(date) => setSelectedDay(date)}
               lastExpense={lastExpense}
               onRepeat={repeatLast}
               onOpenMonth={openMonth}
@@ -1232,6 +1280,7 @@ function App() {
               onDelete={remove}
               onPdf={() => downloadMonthPdf(selectedMonth)}
               onEditBudget={() => setBudgetEditing(selectedMonth)}
+              onDaySelect={setSelectedDay}
             />
           )}
 
@@ -1301,6 +1350,16 @@ function App() {
             <Plus size={22} />
             <span className="fab-text">{isMoneyPage ? t("add_money") : t("add_expense")}</span>
           </button>
+        )}
+
+        {selectedDay && (
+          <DayExpensesModal
+            date={selectedDay}
+            expenses={all.filter((expense) => expense.date === selectedDay)}
+            onClose={() => setSelectedDay(null)}
+            onEdit={(item) => { setSelectedDay(null); setEditing({ type: item.type, item }); }}
+            onDelete={remove}
+          />
         )}
 
         {editing && (
@@ -1501,6 +1560,31 @@ function SideDrawer({
                 <span>{t("delete_all")}</span>
               </button>
             </div>
+          </section>
+
+          <section className="drawer-section">
+            <h3><Globe size={14} /> Currency & number format</h3>
+            <label className="drawer-time">Currency
+              <select value={prefs.currency || "INR"} onChange={(e) => setPrefs((p) => ({ ...p, currency: e.target.value }))}>
+                <option value="INR">INR — Indian Rupee (₹)</option>
+                <option value="USD">USD — US Dollar ($)</option>
+                <option value="EUR">EUR — Euro (€)</option>
+                <option value="GBP">GBP — British Pound (£)</option>
+                <option value="AED">AED — UAE Dirham</option>
+                <option value="LKR">LKR — Sri Lankan Rupee</option>
+              </select>
+            </label>
+            <label className="drawer-time">Number format
+              <select value={prefs.numberFormat || "en-IN"} onChange={(e) => setPrefs((p) => ({ ...p, numberFormat: e.target.value }))}>
+                <option value="en-IN">India (1,00,000)</option>
+                <option value="en-US">US / UK (100,000)</option>
+                <option value="de-DE">Germany (100.000)</option>
+              </select>
+            </label>
+            <label className="drawer-time" style={{display:"flex",alignItems:"center",gap:10}}>
+              <input type="checkbox" checked={prefs.autoBackup !== false} onChange={(e) => setPrefs((p) => ({ ...p, autoBackup: e.target.checked }))} /> Automatically back up changes on this device
+            </label>
+            <p className="hint">Automatic backup stays in this browser's local storage. Download a backup to keep a separate copy.</p>
           </section>
 
           <section className="drawer-section">
@@ -1713,7 +1797,7 @@ function WeeklySummary({ all, daily }) {
   );
 }
 
-function CalendarHeatmap({ monthKey, daily }) {
+function CalendarHeatmap({ monthKey, daily, onDaySelect }) {
   const t = useT();
   const { year, month } = getMonthParts(monthKey);
   const firstDay = new Date(year, month - 1, 1).getDay();
@@ -1741,13 +1825,16 @@ function CalendarHeatmap({ monthKey, daily }) {
     const key = `${monthKey}-${String(day).padStart(2, "0")}`;
     const level = total <= 0 || max <= 0 ? 0 : Math.min(4, Math.ceil((total / max) * 4));
     cells.push(
-      <div
+      <button
+        type="button"
         key={key}
         className={`heat-cell l${level} ${key === todayKey ? "is-today" : ""}`}
-        title={`${formatDate(key)} • ${money(total)}`}
+        title={`${formatDate(key)} • ${money(total)} — click to view expenses`}
+        onClick={() => onDaySelect?.(key)}
+        aria-label={`${formatDate(key)} spending ${money(total)}. View expenses`}
       >
         {day}
-      </div>
+      </button>
     );
   });
 
@@ -1838,6 +1925,13 @@ function BudgetModal({ monthKey, current, onClose, onSave }) {
           </div>
 
           <p className="hint">{t("budget_hint")}</p>
+
+          <label>Notes (optional)
+            <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add details about this expense" />
+          </label>
+          <label>Tags (comma-separated)
+            <input value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="necessary, shared, one-time" />
+          </label>
 
           <div className="save-row">
             <button className="save-btn" type="submit">
@@ -1951,7 +2045,8 @@ function MonthDetail({
   onEdit,
   onDelete,
   onPdf,
-  onEditBudget
+  onEditBudget,
+  onDaySelect
 }) {
   const t = useT();
   const total = sumBy(expenses);
@@ -1986,7 +2081,7 @@ function MonthDetail({
 
       <BudgetCard monthKey={monthKey} spent={total} budget={budget} onEdit={onEditBudget} />
 
-      <CalendarHeatmap monthKey={monthKey} daily={monthDaily} />
+      <CalendarHeatmap monthKey={monthKey} daily={monthDaily} onDaySelect={onDaySelect} />
 
       <div className="panel">
         <div className="panel-head">
@@ -2072,6 +2167,8 @@ function MonthExpenseItem({ expense, onEdit, onDelete }) {
       <div className="mr-desc">
         <b>{descOf(expense, t)}</b>
         {details.length > 0 && <span>{details.join(" • ")}</span>}
+        {expense.notes && <span>{expense.notes}</span>}
+        {expense.tags?.length > 0 && <div className="expense-tags">{expense.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
       </div>
 
       <div className="mr-amount">{money(expense.amount)}</div>
@@ -2106,6 +2203,13 @@ function Dashboard({
   daily,
   monthlyBills,
   budgets,
+  categoryBudgets = {},
+  savingsGoals = [],
+  onSetCategoryBudget,
+  onAddSavingsGoal,
+  onUpdateSavingsGoal,
+  onDeleteSavingsGoal,
+  onDaySelect,
   lastExpense,
   onRepeat,
   onOpenMonth,
@@ -2202,7 +2306,10 @@ function Dashboard({
 
       <WeeklySummary all={all} daily={daily} />
 
-      <CalendarHeatmap monthKey={currentKey} daily={daily} />
+      <CalendarHeatmap monthKey={currentKey} daily={daily} onDaySelect={onDaySelect} />
+      <SmartInsights all={all} categories={categories} />
+      <CategoryBudgets all={all} budgets={categoryBudgets} onSave={onSetCategoryBudget} />
+      <SavingsGoals goals={savingsGoals} onAdd={onAddSavingsGoal} onUpdate={onUpdateSavingsGoal} onDelete={onDeleteSavingsGoal} />
 
       <div className="panel">
         <div className="panel-head">
@@ -2360,6 +2467,44 @@ function Dashboard({
   );
 }
 
+function prefsLangForSpeech() {
+  return ({ en: "en-IN", ta: "ta-IN", hi: "hi-IN" })[activeLang] || "en-IN";
+}
+
+function DayExpensesModal({ date, expenses, onClose, onEdit, onDelete }) {
+  const t = useT();
+  return <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal day-expenses-modal">
+      <div className="modal-head"><div><span className="eyebrow">Daily spending</span><h2>{formatDate(date)}</h2><p>{money(sumBy(expenses))} • {expenses.length} expense(s)</p></div><button className="icon-btn" onClick={onClose}><X /></button></div>
+      {expenses.length ? expenses.map((expense) => <div className="day-expense-item" key={`${expense.type}-${expense.id}`}><div><b>{descOf(expense, t)}</b><small>{categoryOf(expense, t)}{expense.notes ? ` • ${expense.notes}` : ""}</small>{expense.tags?.length > 0 && <div className="expense-tags">{expense.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}</div><strong>{money(expense.amount)}</strong><button className="edit-action" onClick={() => onEdit(expense)}>Edit</button><button className="delete-action" onClick={() => onDelete(expense.type, expense.id)}>Delete</button></div>) : <Empty />}
+    </div>
+  </div>;
+}
+
+function SmartInsights({ all, categories }) {
+  const t = useT();
+  const currentMonth = today().slice(0, 7);
+  const previous = new Date(); previous.setMonth(previous.getMonth() - 1);
+  const previousKey = `${previous.getFullYear()}-${String(previous.getMonth()+1).padStart(2,"0")}`;
+  const currentTotal = sumBy(all.filter((x) => getMonthKey(x.date) === currentMonth));
+  const previousTotal = sumBy(all.filter((x) => getMonthKey(x.date) === previousKey));
+  const top = [...categories].sort((a,b) => b.value-a.value)[0];
+  const change = previousTotal ? Math.round(((currentTotal-previousTotal)/previousTotal)*100) : null;
+  const expensiveDay = [...buildDailyTotals(all).entries()].sort((a,b)=>b[1]-a[1])[0];
+  return <div className="panel smart-insights"><div className="panel-head"><div><h2><Sparkles size={17}/> Smart insights</h2><p>Quick patterns from your saved expenses</p></div></div><div className="insight-grid"><div className="insight-item"><span>This month's spending</span><b>{money(currentTotal)}</b><small>{change === null ? "Add last month's records for a comparison" : `${Math.abs(change)}% ${change > 0 ? "higher" : change < 0 ? "lower" : "unchanged"} than last month`}</small></div><div className="insight-item"><span>Highest category</span><b>{top?.label || "No data yet"}</b><small>{top?.value ? money(top.value) : "Add an expense to see trends"}</small></div><div className="insight-item"><span>Highest-spend day</span><b>{expensiveDay ? formatDate(expensiveDay[0]) : "No data yet"}</b><small>{expensiveDay ? money(expensiveDay[1]) : "Daily totals will appear here"}</small></div></div></div>;
+}
+
+function CategoryBudgets({ all, budgets, onSave }) {
+  const categories = [{key:"rent",label:"Rent"},{key:"travel",label:"Travel"},{key:"food",label:"Food"},{key:"snacks",label:"Snacks"},{key:"other",label:"Other"}];
+  const month = today().slice(0,7);
+  const monthItems = all.filter((x)=>getMonthKey(x.date)===month);
+  return <div className="panel"><div className="panel-head"><div><h2>Category-wise budgets</h2><p>Set monthly limits for each spending category</p></div></div><div className="category-budget-list">{categories.map((cat)=>{const spent=sumBy(monthItems.filter((x)=>x.type===cat.key));const limit=Number(budgets?.[cat.key]||0);const pct=limit?Math.min(100,spent/limit*100):0;return <div className="category-budget-row" key={cat.key}><div className="category-budget-top"><b>{cat.label}</b><span>{money(spent)}{limit?` / ${money(limit)}`:" / No limit"}</span><button className="link-btn" onClick={()=>{const value=window.prompt(`Monthly ${cat.label} budget amount`,String(limit||""));if(value!==null&&value.trim()!=="")onSave?.(cat.key,Math.max(0,Number(value)||0));}}>Set</button></div><div className="budget-track"><i style={{width:`${pct}%`,background:pct>=100?"var(--danger, #dc5353)":undefined}}/></div>{limit>0&&spent>limit&&<small className="budget-warning">Over budget by {money(spent-limit)}</small>}</div>})}</div></div>;
+}
+
+function SavingsGoals({ goals = [], onAdd, onUpdate, onDelete }) {
+  return <div className="panel"><div className="panel-head"><div><h2><PiggyBank size={17}/> Savings goals</h2><p>Track a target and update how much you've saved</p></div><button className="btn btn-outline" onClick={()=>{const name=window.prompt("Savings goal name");if(!name?.trim())return;const target=Number(window.prompt("Target amount"));if(!target||target<=0)return;onAdd?.({id:createId("goal"),name:name.trim(),target,saved:0,createdAt:today()});}}>+ Add goal</button></div>{goals.length? <div className="savings-goals-list">{goals.map((goal)=>{const pct=Math.min(100,Math.round((Number(goal.saved||0)/Number(goal.target||1))*100));return <div className="savings-goal" key={goal.id}><div className="category-budget-top"><b>{goal.name}</b><span>{money(goal.saved)} / {money(goal.target)}</span></div><div className="budget-track"><i style={{width:`${pct}%`}}/></div><div className="savings-goal-actions"><small>{pct}% saved • {money(Math.max(0,goal.target-goal.saved))} to go</small><button className="link-btn" onClick={()=>{const amount=window.prompt("Total amount saved so far",String(goal.saved||0));if(amount!==null)onUpdate?.(goal.id,Math.max(0,Number(amount)||0));}}>Update</button><button className="link-btn danger-text" onClick={()=>onDelete?.(goal.id)}>Delete</button></div></div>})}</div>:<p className="hint">No savings goals yet. Add one to track progress.</p>}</div>;
+}
+
 function Stat({ icon, title, value, cls }) {
   return (
     <div className="stat-card">
@@ -2486,6 +2631,8 @@ function ExpenseRow({ x, actions, onEdit, onDelete }) {
       <div className="expense-info">
         <b>{x.label || x.description || x.name}</b>
         <span>{x.date}{x.type === "food" ? ` • ${x.food}` : ""}</span>
+        {x.notes && <small className="expense-notes">{x.notes}</small>}
+        {Array.isArray(x.tags) && x.tags.length > 0 && <div className="expense-tags">{x.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
       </div>
 
       <strong className="row-amount">{money(x.amount)}</strong>
@@ -2731,6 +2878,10 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveSingleFood }) {
   const [month, setMonth] = useState(initial?.month || "");
   const [rentDesc, setRentDesc] = useState(type === "rent" ? initial?.description || "" : "");
   const [otherCategory, setOtherCategory] = useState(initial?.category || "Miscellaneous");
+  const [notes, setNotes] = useState(initial?.notes || "");
+  const [tagsText, setTagsText] = useState(Array.isArray(initial?.tags) ? initial.tags.join(", ") : "");
+  const [naturalText, setNaturalText] = useState("");
+  const [voiceStatus, setVoiceStatus] = useState("");
 
   const formRef = useRef(null);
   const amountRef = useRef(null);
@@ -2786,7 +2937,9 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveSingleFood }) {
         date,
         meal,
         food: combinedFoodName,
-        amount: totalFoodAmount
+        amount: totalFoodAmount,
+        notes: notes.trim(),
+        tags: tagsText.split(",").map((tag) => tag.trim()).filter(Boolean)
       };
 
       onSaveSingleFood("food", combinedItem, again);
@@ -2799,7 +2952,7 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveSingleFood }) {
     const numeric = Number(amount);
     if (!numeric || numeric <= 0) return;
 
-    const common = { id: initial?.id, date, amount: numeric };
+    const common = { id: initial?.id, date, amount: numeric, notes: notes.trim(), tags: tagsText.split(",").map((tag) => tag.trim()).filter(Boolean) };
     const text = title.trim();
 
     if (kind === "travel") {
@@ -2900,6 +3053,43 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveSingleFood }) {
         )}
 
         <form ref={formRef} onSubmit={submit}>
+          <div className="natural-entry-box">
+            <label>Smart / voice entry
+              <input value={naturalText} onChange={(e) => setNaturalText(e.target.value)} placeholder="e.g. bus 50 today, lunch meals 80" />
+            </label>
+            <div className="natural-entry-actions">
+              <button type="button" className="btn btn-outline" onClick={() => {
+                const text = naturalText.trim();
+                if (!text) return;
+                const amountMatch = text.match(/(?:₹|rs\.?\s*)?([0-9]+(?:[.,][0-9]{1,2})?)/i);
+                const amountValue = amountMatch ? amountMatch[1].replace(",", ".") : "";
+                if (amountValue) setAmount(amountValue);
+                const lower = text.toLowerCase();
+                if (/\b(bus|train|auto|cab|metro|travel)\b/.test(lower)) setKind("travel");
+                else if (/\b(idly|idli|dosa|dosai|meals|lunch|breakfast|dinner|biryani|food)\b/.test(lower)) {
+                  setKind("food");
+                  if (/\b(breakfast|morning)\b/.test(lower)) setMeal("Breakfast");
+                  else if (/\b(lunch|afternoon)\b/.test(lower)) setMeal("Lunch");
+                  else if (/\b(dinner|night|evening)\b/.test(lower)) setMeal("Dinner");
+                } else if (/\b(tea|coffee|biscuit|juice|snack|samosa)\b/.test(lower)) setKind("snacks");
+                const cleaned = text.replace(/(?:₹|rs\.?\s*)?[0-9]+(?:[.,][0-9]{1,2})?/i, "").replace(/\b(today|yesterday|spent|for|rupees?|rs)\b/gi, "").trim();
+                if (cleaned) setTitle(cleaned.charAt(0).toUpperCase() + cleaned.slice(1));
+                setVoiceStatus("Parsed the entry. Review the fields and save.");
+              }}>Parse entry</button>
+              <button type="button" className="btn btn-outline" onClick={() => {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) { setVoiceStatus("Voice input is not supported in this browser. Type your entry instead."); return; }
+                const recognition = new SpeechRecognition();
+                recognition.lang = prefsLangForSpeech();
+                recognition.interimResults = false;
+                recognition.onresult = (event) => { const transcript = event.results?.[0]?.[0]?.transcript || ""; setNaturalText(transcript); setVoiceStatus("Voice captured. Tap Parse entry to fill the form."); };
+                recognition.onerror = () => setVoiceStatus("Could not capture voice. Please try again or type your entry.");
+                recognition.start();
+                setVoiceStatus("Listening…");
+              }}><Mic size={15}/> Speak</button>
+            </div>
+            {voiceStatus && <p className="hint">{voiceStatus}</p>}
+          </div>
           {kind === "food" && (
             <label>
               {t("meal_type")}

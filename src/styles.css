@@ -586,3 +586,106 @@ form > .save-btn{margin-top:6px}
 [data-theme="dark"] .stat-icon.morning{color:#fbbf24}
 [data-theme="dark"] .balance-pill{border-color:#4a3a12}
 [data-theme="dark"] .balance-pill.zero{border-color:#1f4a31}
+/* =========================================================
+   ROOMLIFE — styles for the added smart expense features
+   Appended intentionally so existing component styles remain intact.
+   ========================================================= */
+
+/* Clickable daily heatmap */
+.heat-day,
+.heat-cell,
+.heat-grid button,
+.heat-grid [role="button"]{
+  transition:transform .16s ease, box-shadow .16s ease, outline-color .16s ease;
+  cursor:pointer;
+}
+.heat-day:hover,
+.heat-cell:hover,
+.heat-grid button:hover,
+.heat-grid [role="button"]:hover{transform:translateY(-2px);box-shadow:0 3px 10px rgba(15,148,136,.16)}
+.heat-day:focus-visible,
+.heat-cell:focus-visible,
+.heat-grid button:focus-visible,
+.heat-grid [role="button"]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.heat-day.selected,
+.heat-cell.selected,
+.heat-grid .selected{outline:2px solid var(--accent);outline-offset:2px}
+.day-expenses-modal{width:min(640px,100%)}
+.day-expense-item{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.day-expense-item:last-child{border-bottom:0}
+.day-expense-item>div:first-child{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.day-expense-item b{font-size:13px;overflow-wrap:anywhere}
+.day-expense-item small{color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+.day-expense-item>strong{font-size:13px;white-space:nowrap}
+.day-expense-item button{flex-shrink:0}
+
+/* Notes and tags */
+.expense-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.expense-tags span{display:inline-flex;align-items:center;border:1px solid var(--accent-line);background:var(--accent-soft);color:var(--accent-600);border-radius:999px;padding:3px 8px;font-size:10px;font-weight:650;line-height:1.35;overflow-wrap:anywhere}
+.expense-notes{display:block;color:var(--muted);margin-top:5px;line-height:1.45;overflow-wrap:anywhere}
+
+/* Smart insights */
+.smart-insights{overflow:hidden}
+.insight-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.insight-item{display:flex;flex-direction:column;gap:8px;min-width:0;padding:15px;border:1px solid var(--line);border-radius:14px;background:var(--surface-soft)}
+.insight-item>span{font-size:11px;color:var(--muted);font-weight:600}
+.insight-item>b{font-size:clamp(15px,2vw,22px);line-height:1.25;overflow-wrap:anywhere}
+.insight-item>small{font-size:11px;color:var(--muted);line-height:1.45;overflow-wrap:anywhere}
+
+/* Category budgets */
+.category-budget-list{display:flex;flex-direction:column;gap:13px}
+.category-budget-row{padding:13px;border:1px solid var(--line);border-radius:13px;background:var(--surface)}
+.category-budget-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+.category-budget-top>div{min-width:0}
+.category-budget-top b{display:block;font-size:13px;overflow-wrap:anywhere}
+.category-budget-top small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.category-budget-top strong{white-space:nowrap;font-size:12px}
+.category-budget-row input{margin-top:9px}
+.budget-warning{font-size:11px;color:var(--danger);font-weight:650;margin-top:8px}
+
+/* Savings goals */
+.savings-goals-list{display:flex;flex-direction:column;gap:12px}
+.savings-goal{padding:15px;border:1px solid var(--line);border-radius:15px;background:var(--surface)}
+.savings-goal>header,.savings-goal-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.savings-goal h3,.savings-goal b{overflow-wrap:anywhere}
+.savings-goal p{color:var(--muted);font-size:12px;line-height:1.45;margin:5px 0 10px}
+.savings-goal-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:12px}
+.savings-goal .budget-track,.savings-goal .progress-track{height:9px;border-radius:999px;overflow:hidden;background:var(--line)}
+.savings-goal .budget-track>span,.savings-goal .progress-track>span{display:block;height:100%;border-radius:inherit;background:var(--accent);transition:width .25s ease}
+
+/* Natural language and voice expense entry */
+.natural-entry-box{border:1px solid var(--accent-line);background:var(--accent-soft);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:9px}
+.natural-entry-box>label{font-size:12px;font-weight:700;color:var(--ink)}
+.natural-entry-box input{background:var(--surface);width:100%;min-width:0}
+.natural-entry-actions{display:flex;flex-wrap:wrap;gap:8px}
+.natural-entry-actions button{min-height:38px}
+.natural-entry-box .hint{margin:0;font-size:11px;line-height:1.45;color:var(--muted)}
+
+/* Currency and number format controls */
+.drawer-time select,.drawer-time input:not([type="checkbox"]){width:100%;min-width:0}
+.drawer-time input[type="checkbox"]{accent-color:var(--accent)}
+
+/* Keep new layouts responsive on phones and tablets */
+@media(max-width:720px){
+  .insight-grid{grid-template-columns:1fr}
+  .insight-item{padding:13px;gap:6px}
+  .insight-item>b{font-size:19px}
+  .day-expense-item{gap:8px;flex-wrap:wrap}
+  .day-expense-item>div:first-child{flex-basis:calc(100% - 20px)}
+  .day-expense-item>strong{margin-left:0}
+  .day-expense-item button{padding:7px 9px;font-size:11px}
+  .category-budget-top{align-items:flex-start}
+  .savings-goal{padding:13px}
+  .natural-entry-actions button{flex:1 1 auto}
+}
+@media(max-width:380px){
+  .category-budget-top{flex-direction:column}
+  .day-expense-item>strong{font-size:12px}
+  .expense-tags span{font-size:9px;padding:3px 7px}
+}
+
+/* Accessible motion preferences */
+@media(prefers-reduced-motion:reduce){
+  .heat-day,.heat-cell,.heat-grid button,.heat-grid [role="button"],
+  .savings-goal .budget-track>span,.savings-goal .progress-track>span{transition:none}
+}
