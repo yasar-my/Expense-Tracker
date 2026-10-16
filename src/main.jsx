@@ -649,6 +649,7 @@ async function showReminder(title, body, fallback) {
    ========================================================= */
 
 function App() {
+  const [showSpendoraIntro, setShowSpendoraIntro] = useState(true);
   const [data, setData] = useState(loadData);
   const [prefs, setPrefs] = useState(loadPrefs);
   const [page, setPage] = useState("dashboard");
@@ -672,6 +673,11 @@ function App() {
   activeNumberFormat = prefs.numberFormat || LOCALES[prefs.lang] || "en-IN";
   const t = useMemo(() => (k, v) => translate(prefs.lang, k, v), [prefs.lang]);
   const langValue = useMemo(() => ({ lang: prefs.lang, t }), [prefs.lang, t]);
+
+  useEffect(() => {
+    const introTimer = window.setTimeout(() => setShowSpendoraIntro(false), 3700);
+    return () => window.clearTimeout(introTimer);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify(data));
@@ -1208,6 +1214,40 @@ function App() {
 
   return (
     <LangCtx.Provider value={langValue}>
+      {showSpendoraIntro && (
+        <div className="spendora-intro" role="status" aria-label="Welcome to Spendora">
+          <div className="spendora-intro__glow" aria-hidden="true" />
+          <div className="spendora-intro__grid" aria-hidden="true" />
+          <div className="spendora-intro__content">
+            <div className="spendora-intro__orb" aria-hidden="true" />
+            <h1 className="spendora-intro__wordmark" aria-label="Spendora">
+              {[..."SPENDORA"].map((letter, index) => (
+                <span
+                  className="spendora-intro__letter"
+                  key={`${letter}-${index}`}
+                  style={{
+                    "--intro-x": ["-55px", "0px", "42px", "-38px", "0px", "45px", "-48px", "30px"][index],
+                    "--intro-y": ["-45px", "55px", "-50px", "40px", "-60px", "45px", "-35px", "55px"][index],
+                    "--intro-rotate": ["-24deg", "18deg", "28deg", "-20deg", "14deg", "-15deg", "20deg", "-24deg"][index],
+                    "--intro-delay": `${450 + index * 95}ms`
+                  }}
+                  aria-hidden="true"
+                >
+                  {letter}
+                </span>
+              ))}
+            </h1>
+            <div className="spendora-intro__line" aria-hidden="true" />
+            <p className="spendora-intro__tagline">
+              SMARTER SPENDING. <span>SIMPLER LIVING.</span>
+            </p>
+          </div>
+          <div className="spendora-intro__loader">
+            <span className="spendora-intro__loader-dot" aria-hidden="true" />
+            <span>YOUR MONEY, IN FOCUS</span>
+          </div>
+        </div>
+      )}
       <div className="app">
         <main>
           <div className="page-head">
