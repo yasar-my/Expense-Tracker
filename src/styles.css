@@ -2,43 +2,43 @@
    RoomLife — Light + Dark theme (stone + teal)
    Edit the variables below to re-theme the whole app.
    ========================================================= */
-:root{
-  --bg:#f6f5f2;
-  --surface:#ffffff;
-  --surface-soft:#faf9f7;
-  --ink:#1c1917;
-  --ink-2:#44403c;
-  --muted:#78716c;
-  --faint:#a8a29e;
-  --line:#e7e5e0;
-  --line-strong:#d6d3cd;
+ :root{
+   --bg:#032b22;
+   --surface:#064734;
+   --surface-soft:#0a5a43;
+   --ink:#efffe5;
+   --ink-2:#d7f3c5;
+   --muted:#a9c9b4;
+   --faint:#739a85;
+   --line:#1b624b;
+   --line-strong:#2b795d;
 
-  --accent:#0f766e;
-  --accent-600:#0b5f58;
-  --accent-soft:#ecf7f5;
-  --accent-line:#bfe3de;
-  --success:#15803d;
-  --success-soft:#ecfdf3;
-  --danger:#b91c1c;
-  --danger-soft:#fef2f2;
-  --danger-line:#fecaca;
-  --warn:#b45309;
-  --warn-soft:#fffbeb;
+   --accent:#e0ffc2;
+   --accent-600:#bce99a;
+   --accent-soft:#0b4d39;
+   --accent-line:#6c9b7b;
+   --success:#4ade80;
+   --success-soft:#10261a;
+   --danger:#f87171;
+   --danger-soft:#2c1517;
+   --danger-line:#5b2326;
+   --warn:#fbbf24;
+   --warn-soft:#2b2210;
 
-  --c-rent:#475569;
-  --c-travel:#0369a1;
-  --c-food:#b45309;
-  --c-snacks:#15803d;
-  --c-other:#7e22ce;
+   --c-rent:#b6e99a;
+   --c-travel:#7dddb7;
+   --c-food:#fbbf24;
+   --c-snacks:#b6e99a;
+   --c-other:#d2edbd;
 
-  --radius-sm:8px;
-  --radius:12px;
-  --radius-lg:16px;
-  --shadow-sm:0 1px 2px rgba(28,25,23,.05);
-  --shadow:0 6px 18px rgba(28,25,23,.08);
-  --shadow-lg:0 20px 48px rgba(28,25,23,.18);
+   --radius-sm:8px;
+   --radius:12px;
+   --radius-lg:16px;
+   --shadow-sm:0 1px 2px rgba(0,0,0,.25);
+   --shadow:0 6px 18px rgba(0,0,0,.3);
+   --shadow-lg:0 20px 48px rgba(0,0,0,.55);
 
-  --bar-h:66px;
+   --bar-h:66px;
 }
 
 *{box-sizing:border-box}
