@@ -298,7 +298,9 @@ const starter = {
   money: [],
   budgets: {},
   categoryBudgets: {},
-  savingsGoals: []
+  savingsGoals: [],
+  subscriptions: [],
+  wallets: []
 };
 
 function cleanBudgets(b) {
@@ -328,7 +330,9 @@ function loadData() {
       money: Array.isArray(saved.money) ? saved.money : [],
       budgets: cleanBudgets(saved.budgets),
       categoryBudgets: saved.categoryBudgets && typeof saved.categoryBudgets === "object" ? saved.categoryBudgets : {},
-      savingsGoals: Array.isArray(saved.savingsGoals) ? saved.savingsGoals : []
+      savingsGoals: Array.isArray(saved.savingsGoals) ? saved.savingsGoals : [],
+      subscriptions: Array.isArray(saved.subscriptions) ? saved.subscriptions : [],
+      wallets: Array.isArray(saved.wallets) ? saved.wallets : []
     };
   } catch {
     return starter;
@@ -393,6 +397,8 @@ function normalizeBackupData(imported) {
   normalized.budgets = cleanBudgets(imported.budgets);
   normalized.categoryBudgets = imported.categoryBudgets && typeof imported.categoryBudgets === "object" ? imported.categoryBudgets : {};
   normalized.savingsGoals = Array.isArray(imported.savingsGoals) ? imported.savingsGoals : [];
+  normalized.subscriptions = Array.isArray(imported.subscriptions) ? imported.subscriptions : [];
+  normalized.wallets = Array.isArray(imported.wallets) ? imported.wallets : [];
   return normalized;
 }
 
@@ -985,6 +991,14 @@ function App() {
           (imported.savingsGoals || []).forEach((goal) => {
             if (goal && goal.id && !next.savingsGoals.some((existing) => existing.id === goal.id)) next.savingsGoals.push(goal);
           });
+          next.subscriptions = [...(current.subscriptions || [])];
+          (imported.subscriptions || []).forEach((item) => {
+            if (item && item.id && !next.subscriptions.some((existing) => existing.id === item.id)) next.subscriptions.push(item);
+          });
+          next.wallets = [...(current.wallets || [])];
+          (imported.wallets || []).forEach((item) => {
+            if (item && item.id && !next.wallets.some((existing) => existing.id === item.id)) next.wallets.push(item);
+          });
           return next;
         });
 
@@ -1197,7 +1211,8 @@ function App() {
     },
     expenses: { eyebrow: t("eb_records"), title: t("ttl_expenses"), sub: t("sub_expenses") },
     food: { eyebrow: t("eb_category"), title: t("ttl_food"), sub: t("sub_food") },
-    money: { eyebrow: t("eb_ledger"), title: t("ttl_money"), sub: t("sub_money") }
+    money: { eyebrow: t("eb_ledger"), title: t("ttl_money"), sub: t("sub_money") },
+    tools: { eyebrow: "SPENDORA LAB", title: "Smart tools", sub: "Subscriptions, spending heatmap, what-if planning, receipt scanning and accounts." }
   }[page];
 
   const tabs = [
@@ -1349,6 +1364,21 @@ function App() {
             />
           )}
 
+          {page === "tools" && (
+            <SpendoraSmartTools
+              subscriptions={data.subscriptions || []}
+              wallets={data.wallets || []}
+              all={all}
+              onSubscriptionsChange={(subscriptions) => setData((current) => ({ ...current, subscriptions }))}
+              onWalletsChange={(wallets) => setData((current) => ({ ...current, wallets }))}
+              onAddReceipt={(item) => {
+                const receipt = { ...item, id: createId("receipt"), type: "other" };
+                setData((current) => ({ ...current, other: [...current.other, receipt] }));
+                flash("Receipt expense added");
+              }}
+            />
+          )}
+
           <footer>{t("footer")}</footer>
         </main>
 
@@ -1440,6 +1470,7 @@ function App() {
             onUpload={handleBackupUpload}
             onClear={clearAll}
             fileInputRef={fileInputRef}
+            onNavigateTools={() => navigate("tools")}
             onClose={() => setDrawerOpen(false)}
           />
         )}
@@ -1516,6 +1547,7 @@ function SideDrawer({
   onUpload,
   onClear,
   fileInputRef,
+  onNavigateTools,
   onClose
 }) {
   const t = useT();
@@ -1547,6 +1579,16 @@ function SideDrawer({
         </div>
 
         <div className="drawer-body">
+          <section className="drawer-section">
+            <h3><Sparkles size={14} /> Spendora Smart Tools</h3>
+            <div className="drawer-list">
+              <button type="button" className="drawer-item" onClick={onNavigateTools}>
+                <Sparkles size={17} />
+                <span>Open smart tools</span>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </section>
           <section className="drawer-section">
             <h3>
               <Globe size={14} /> {t("language")}
@@ -3552,5 +3594,402 @@ function MoneyModal({ initial, type, transactions, onClose, onSave }) {
     </div>
   );
 }
+
+
+
+/* =========================================================
+   Spendora Smart Tools
+   - Subscription manager
+   - Spending calendar heatmap
+   - What-if financial simulator
+   - Receipt OCR scanner (requires `npm install tesseract.js`)
+   - Multiple wallets and accounts
+   ========================================================= */
+
+function SpendoraSmartTools({
+  subscriptions,
+  wallets,
+  all,
+  onSubscriptionsChange,
+  onWalletsChange,
+  onAddReceipt
+}) {
+  const [subName, setSubName] = useState("");
+  const [subCost, setSubCost] = useState("");
+  const [subCycle, setSubCycle] = useState("monthly");
+  const [subDue, setSubDue] = useState(today());
+  const [subCategory, setSubCategory] = useState("Entertainment");
+  const [heatMonth, setHeatMonth] = useState(today().slice(0, 7));
+  const [simSpend, setSimSpend] = useState("");
+  const [simCut, setSimCut] = useState("15");
+  const [simMonths, setSimMonths] = useState("12");
+  const [receiptPreview, setReceiptPreview] = useState("");
+  const [ocrText, setOcrText] = useState("");
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrError, setOcrError] = useState("");
+  const [receiptAmount, setReceiptAmount] = useState("");
+  const [receiptName, setReceiptName] = useState("");
+  const [receiptDate, setReceiptDate] = useState(today());
+  const [receiptCategory, setReceiptCategory] = useState("Miscellaneous");
+  const [walletName, setWalletName] = useState("");
+  const [walletType, setWalletType] = useState("Bank account");
+  const [walletOpening, setWalletOpening] = useState("0");
+  const [txnWallet, setTxnWallet] = useState("");
+  const [txnDirection, setTxnDirection] = useState("expense");
+  const [txnAmount, setTxnAmount] = useState("");
+  const [txnDescription, setTxnDescription] = useState("");
+  const [transferFrom, setTransferFrom] = useState("");
+  const [transferTo, setTransferTo] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+
+  const ui = {
+    page: { display: "grid", gap: 18, paddingBottom: 90 },
+    card: { background: "var(--card, #fff)", border: "1px solid var(--border, #e7e7e7)", borderRadius: 18, padding: 18, minWidth: 0 },
+    title: { margin: "0 0 6px", fontSize: 18, fontWeight: 750 },
+    muted: { color: "var(--muted, #777)", fontSize: 13, lineHeight: 1.5 },
+    grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: 12 },
+    input: { width: "100%", minWidth: 0, padding: "11px 12px", borderRadius: 10, border: "1px solid var(--border, #ddd)", background: "var(--input-bg, var(--card, #fff))", color: "var(--text, inherit)", font: "inherit", boxSizing: "border-box" },
+    label: { display: "grid", gap: 6, fontSize: 13, fontWeight: 650, marginBottom: 12 },
+    primary: { border: 0, borderRadius: 10, padding: "11px 14px", background: "var(--accent, #168879)", color: "#fff", fontWeight: 700, cursor: "pointer" },
+    secondary: { border: "1px solid var(--border, #ddd)", borderRadius: 9, padding: "8px 10px", background: "transparent", color: "var(--text, inherit)", cursor: "pointer" },
+    row: { display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" },
+    pill: { fontSize: 11, borderRadius: 99, padding: "4px 8px", background: "var(--soft, #eef7f5)", color: "var(--accent, #168879)", fontWeight: 700 }
+  };
+  const field = (label, value, onChange, props = {}) => (
+    <label style={ui.label}>
+      {label}
+      <input style={ui.input} value={value} onChange={(e) => onChange(e.target.value)} {...props} />
+    </label>
+  );
+  const monthExpenses = useMemo(() => all.filter((item) => String(item.date || "").slice(0, 7) === heatMonth), [all, heatMonth]);
+  const monthTotal = sumBy(monthExpenses);
+  const daysCount = (() => {
+    const [y, m] = heatMonth.split("-").map(Number);
+    return new Date(y, m, 0).getDate();
+  })();
+  const firstWeekday = (() => {
+    const [y, m] = heatMonth.split("-").map(Number);
+    return new Date(y, m - 1, 1).getDay();
+  })();
+  const heatTotals = useMemo(() => {
+    const map = {};
+    monthExpenses.forEach((item) => { map[item.date] = (map[item.date] || 0) + Number(item.amount || 0); });
+    return map;
+  }, [monthExpenses]);
+  const maxHeat = Math.max(0, ...Object.values(heatTotals));
+  const monthlySubTotal = subscriptions.filter((item) => item.active !== false).reduce((sum, item) => {
+    const cost = Number(item.cost || 0);
+    return sum + (item.cycle === "yearly" ? cost / 12 : cost);
+  }, 0);
+  const currentMonthTotal = sumBy(all.filter((item) => String(item.date || "").slice(0, 7) === today().slice(0, 7)));
+  const baseline = Number(simSpend || currentMonthTotal || 0);
+  const cutPercent = Math.min(100, Math.max(0, Number(simCut) || 0));
+  const monthsAhead = Math.max(1, Math.min(120, Number(simMonths) || 1));
+  const monthlySaving = baseline * cutPercent / 100;
+  const totalSaving = monthlySaving * monthsAhead;
+
+  function addSubscription(event) {
+    event.preventDefault();
+    const cost = Number(subCost);
+    if (!subName.trim() || cost <= 0) return;
+    onSubscriptionsChange([...subscriptions, {
+      id: createId("subscription"),
+      name: subName.trim(),
+      cost,
+      cycle: subCycle,
+      dueDate: subDue,
+      category: subCategory,
+      active: true
+    }]);
+    setSubName("");
+    setSubCost("");
+  }
+
+  function addWallet(event) {
+    event.preventDefault();
+    const openingBalance = Number(walletOpening);
+    if (!walletName.trim() || !Number.isFinite(openingBalance) || openingBalance < 0) return;
+    onWalletsChange([...wallets, {
+      id: createId("wallet"),
+      name: walletName.trim(),
+      type: walletType,
+      openingBalance,
+      transactions: []
+    }]);
+    setWalletName("");
+    setWalletOpening("0");
+  }
+
+  function walletBalance(wallet) {
+    return Number(wallet.openingBalance || 0) + (wallet.transactions || []).reduce((total, txn) => {
+      if (txn.kind === "transfer-in" || txn.kind === "income") return total + Number(txn.amount || 0);
+      return total - Number(txn.amount || 0);
+    }, 0);
+  }
+
+  function addWalletTransaction(event) {
+    event.preventDefault();
+    const amount = Number(txnAmount);
+    const wallet = wallets.find((item) => item.id === txnWallet);
+    if (!wallet || amount <= 0 || !txnDescription.trim()) return;
+    if (txnDirection === "expense" && amount > walletBalance(wallet)) {
+      window.alert("This expense is greater than the selected account balance.");
+      return;
+    }
+    const next = wallets.map((item) => item.id === wallet.id ? {
+      ...item,
+      transactions: [...(item.transactions || []), {
+        id: createId("wallet-txn"),
+        kind: txnDirection,
+        amount,
+        description: txnDescription.trim(),
+        date: today()
+      }]
+    } : item);
+    onWalletsChange(next);
+    setTxnAmount("");
+    setTxnDescription("");
+  }
+
+  function transferBetweenWallets(event) {
+    event.preventDefault();
+    const amount = Number(transferAmount);
+    const from = wallets.find((item) => item.id === transferFrom);
+    const to = wallets.find((item) => item.id === transferTo);
+    if (!from || !to || from.id === to.id || amount <= 0) return;
+    if (amount > walletBalance(from)) {
+      window.alert("Transfer amount is greater than the source account balance.");
+      return;
+    }
+    const transferId = createId("transfer");
+    onWalletsChange(wallets.map((item) => {
+      if (item.id === from.id) return { ...item, transactions: [...(item.transactions || []), { id: `${transferId}-out`, kind: "transfer-out", amount, description: `Transfer to ${to.name}`, date: today() }] };
+      if (item.id === to.id) return { ...item, transactions: [...(item.transactions || []), { id: `${transferId}-in`, kind: "transfer-in", amount, description: `Transfer from ${from.name}`, date: today() }] };
+      return item;
+    }));
+    setTransferAmount("");
+  }
+
+  async function scanReceipt(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setOcrError("Please upload a receipt image (JPG, PNG or WEBP).");
+      return;
+    }
+    setReceiptPreview(URL.createObjectURL(file));
+    setOcrText("");
+    setOcrError("");
+    setOcrBusy(true);
+    try {
+      // Install once in the project: npm install tesseract.js
+      const tesseract = await import("tesseract.js");
+      const result = await tesseract.recognize(file, "eng");
+      const text = result?.data?.text || "";
+      setOcrText(text);
+      const amountMatches = [...text.matchAll(/(?:₹|rs\.?|inr)?\s*([0-9]{1,7}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?)/gi)]
+        .map((match) => Number(match[1].replace(/,/g, "")))
+        .filter((value) => value > 0 && value < 100000000);
+      if (amountMatches.length) setReceiptAmount(String(Math.max(...amountMatches)));
+      const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      if (lines.length) setReceiptName(lines[0].slice(0, 80));
+    } catch (error) {
+      console.error("Receipt OCR failed", error);
+      setOcrError("OCR could not start. Run `npm install tesseract.js`, restart the dev server, and try again.");
+    } finally {
+      setOcrBusy(false);
+    }
+  }
+
+  function saveReceipt(event) {
+    event.preventDefault();
+    const amount = Number(receiptAmount);
+    if (!amount || amount <= 0 || !receiptName.trim()) return;
+    onAddReceipt({
+      name: receiptName.trim(),
+      description: receiptName.trim(),
+      amount,
+      date: receiptDate,
+      category: receiptCategory
+    });
+    setReceiptPreview("");
+    setOcrText("");
+    setReceiptAmount("");
+    setReceiptName("");
+  }
+
+  return (
+    <div style={ui.page}>
+      <section style={ui.card}>
+        <div style={ui.row}>
+          <div>
+            <h2 style={ui.title}>Subscription Manager</h2>
+            <div style={ui.muted}>Track streaming, memberships, software and recurring bills.</div>
+          </div>
+          <span style={ui.pill}>Monthly total: {money(monthlySubTotal)}</span>
+        </div>
+        <form onSubmit={addSubscription} style={{ ...ui.grid, marginTop: 16, alignItems: "end" }}>
+          {field("Subscription name", subName, setSubName, { placeholder: "Netflix, Spotify, gym..." , required: true })}
+          {field("Price", subCost, setSubCost, { type: "number", min: "0.01", step: "0.01", placeholder: "499", required: true })}
+          <label style={ui.label}>Billing cycle
+            <select style={ui.input} value={subCycle} onChange={(e) => setSubCycle(e.target.value)}>
+              <option value="monthly">Monthly</option><option value="yearly">Yearly</option>
+            </select>
+          </label>
+          <label style={ui.label}>Next payment date
+            <input style={ui.input} type="date" value={subDue} onChange={(e) => setSubDue(e.target.value)} required />
+          </label>
+          <label style={ui.label}>Category
+            <select style={ui.input} value={subCategory} onChange={(e) => setSubCategory(e.target.value)}>
+              <option>Entertainment</option><option>Software</option><option>Fitness</option><option>Utilities</option><option>Other</option>
+            </select>
+          </label>
+          <button style={ui.primary} type="submit">+ Add subscription</button>
+        </form>
+        <div style={{ display: "grid", gap: 8, marginTop: 14 }}>
+          {subscriptions.length === 0 && <p style={ui.muted}>No subscriptions yet. Add one above to track upcoming renewals.</p>}
+          {[...subscriptions].sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))).map((item) => (
+            <div key={item.id} style={{ ...ui.row, borderTop: "1px solid var(--border, #eee)", paddingTop: 10 }}>
+              <div style={{ minWidth: 0 }}>
+                <strong>{item.name}</strong>
+                <div style={ui.muted}>{item.category} · {item.cycle === "yearly" ? "Yearly" : "Monthly"} · Due {item.dueDate || "not set"}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <strong>{money(item.cost)}</strong>
+                <button type="button" style={ui.secondary} onClick={() => onSubscriptionsChange(subscriptions.map((sub) => sub.id === item.id ? { ...sub, active: sub.active === false } : sub))}>{item.active === false ? "Resume" : "Pause"}</button>
+                <button type="button" style={ui.secondary} aria-label={`Delete ${item.name}`} onClick={() => onSubscriptionsChange(subscriptions.filter((sub) => sub.id !== item.id))}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={ui.card}>
+        <div style={ui.row}>
+          <div>
+            <h2 style={ui.title}>Spending Calendar Heatmap</h2>
+            <div style={ui.muted}>Each square is a day. Darker squares mean more spending; select a day to see its total.</div>
+          </div>
+          <input aria-label="Heatmap month" style={{ ...ui.input, maxWidth: 180 }} type="month" value={heatMonth} onChange={(e) => setHeatMonth(e.target.value || today().slice(0, 7))} />
+        </div>
+        <div style={{ ...ui.row, margin: "14px 0" }}>
+          <span style={ui.muted}>{getMonthLabel(heatMonth)} · {monthExpenses.length} transactions</span>
+          <strong>{money(monthTotal)}</strong>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 5 }}>
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day} style={{ textAlign: "center", fontSize: 11, color: "var(--muted, #777)", paddingBottom: 4 }}>{day}</div>)}
+          {Array.from({ length: firstWeekday }, (_, i) => <div key={`blank-${i}`} />)}
+          {Array.from({ length: daysCount }, (_, i) => {
+            const day = String(i + 1).padStart(2, "0");
+            const date = `${heatMonth}-${day}`;
+            const amount = Number(heatTotals[date] || 0);
+            const intensity = amount ? (maxHeat ? amount / maxHeat : 0) : 0;
+            return <button key={date} type="button" title={`${date}: ${money(amount)}`} onClick={() => window.alert(`${date}\nTotal spending: ${money(amount)}\nTransactions: ${all.filter((item) => item.date === date).length}`)} style={{ minWidth: 0, aspectRatio: "1", borderRadius: 7, border: "1px solid var(--border, #e5e7eb)", background: amount ? `rgba(22, 136, 121, ${0.14 + intensity * 0.78})` : "var(--soft, #f4f5f6)", color: intensity > 0.55 ? "#fff" : "var(--text, #333)", cursor: "pointer", fontSize: 12 }}>{i + 1}</button>;
+          })}
+        </div>
+        <div style={{ ...ui.row, marginTop: 12 }}>
+          <span style={ui.muted}>Less</span>
+          <div style={{ display: "flex", gap: 5 }}>{[0.14, 0.3, 0.48, 0.68, 0.9].map((opacity) => <span key={opacity} style={{ width: 17, height: 12, borderRadius: 3, background: `rgba(22, 136, 121, ${opacity})` }} />)}</div>
+          <span style={ui.muted}>More</span>
+        </div>
+      </section>
+
+      <section style={ui.card}>
+        <h2 style={ui.title}>What-If Financial Simulator</h2>
+        <p style={ui.muted}>Test how reducing your monthly spending could change your savings. This is a projection, not financial advice.</p>
+        <div style={{ ...ui.grid, marginTop: 14 }}>
+          {field("Current monthly spending", simSpend, setSimSpend, { type: "number", min: "0", step: "1", placeholder: String(Math.round(currentMonthTotal)) })}
+          <label style={ui.label}>Spending reduction
+            <select style={ui.input} value={simCut} onChange={(e) => setSimCut(e.target.value)}>
+              <option value="5">5%</option><option value="10">10%</option><option value="15">15%</option><option value="20">20%</option><option value="25">25%</option><option value="30">30%</option><option value="50">50%</option>
+            </select>
+          </label>
+          <label style={ui.label}>Projection period
+            <select style={ui.input} value={simMonths} onChange={(e) => setSimMonths(e.target.value)}>
+              <option value="3">3 months</option><option value="6">6 months</option><option value="12">12 months</option><option value="24">2 years</option><option value="60">5 years</option>
+            </select>
+          </label>
+        </div>
+        <div style={{ ...ui.grid, marginTop: 6 }}>
+          {[
+            ["Monthly spending reduction", money(monthlySaving)],
+            [`Potential savings in ${monthsAhead} months`, money(totalSaving)],
+            ["Projected spending per month", money(Math.max(0, baseline - monthlySaving))]
+          ].map(([label, value]) => <div key={label} style={{ padding: 14, borderRadius: 12, background: "var(--soft, #f3f8f7)" }}><div style={ui.muted}>{label}</div><div style={{ fontSize: 22, fontWeight: 800, marginTop: 5 }}>{value}</div></div>)}
+        </div>
+      </section>
+
+      <section style={ui.card}>
+        <h2 style={ui.title}>Smart Receipt Scanner (OCR)</h2>
+        <p style={ui.muted}>Upload a clear receipt image. OCR will try to extract text and suggest a total; review everything before saving. Processing happens in your browser with Tesseract.js.</p>
+        <label style={{ ...ui.label, marginTop: 14 }}>Receipt image
+          <input style={ui.input} type="file" accept="image/*" onChange={scanReceipt} />
+        </label>
+        {receiptPreview && <img src={receiptPreview} alt="Uploaded receipt preview" style={{ width: "100%", maxWidth: 300, maxHeight: 300, objectFit: "contain", display: "block", borderRadius: 12, border: "1px solid var(--border, #ddd)", marginBottom: 12 }} />}
+        {ocrBusy && <p style={ui.muted}>Reading receipt text… first scan may take a little longer.</p>}
+        {ocrError && <p role="alert" style={{ color: "#c2410c", fontSize: 13 }}>{ocrError}</p>}
+        {ocrText && <details style={{ margin: "10px 0 16px" }}><summary style={{ cursor: "pointer", fontWeight: 700 }}>Review extracted text</summary><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: 12, padding: 12, background: "var(--soft, #f5f5f5)", borderRadius: 10 }}>{ocrText}</pre></details>}
+        <form onSubmit={saveReceipt} style={{ ...ui.grid, marginTop: 12 }}>
+          {field("Merchant / description", receiptName, setReceiptName, { required: true, placeholder: "Shop name" })}
+          {field("Total amount", receiptAmount, setReceiptAmount, { type: "number", min: "0.01", step: "0.01", required: true, placeholder: "250.00" })}
+          <label style={ui.label}>Expense date<input style={ui.input} type="date" value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} required /></label>
+          <label style={ui.label}>Category
+            <select style={ui.input} value={receiptCategory} onChange={(e) => setReceiptCategory(e.target.value)}>
+              <option>Miscellaneous</option><option>Food</option><option>Travel</option><option>Shopping</option><option>Utilities</option><option>Personal Care</option>
+            </select>
+          </label>
+          <button style={ui.primary} type="submit">Add receipt as expense</button>
+        </form>
+      </section>
+
+      <section style={ui.card}>
+        <div style={ui.row}>
+          <div><h2 style={ui.title}>Multiple Wallets & Accounts</h2><p style={ui.muted}>Keep cash, bank accounts, and wallets separate. Transfers move money between accounts without counting as income or spending overall.</p></div>
+          <span style={ui.pill}>{wallets.length} accounts</span>
+        </div>
+        <form onSubmit={addWallet} style={{ ...ui.grid, marginTop: 12 }}>
+          {field("Account name", walletName, setWalletName, { placeholder: "Main bank, Cash wallet...", required: true })}
+          <label style={ui.label}>Account type
+            <select style={ui.input} value={walletType} onChange={(e) => setWalletType(e.target.value)}><option>Bank account</option><option>Cash</option><option>UPI wallet</option><option>Credit card</option><option>Savings account</option><option>Other</option></select>
+          </label>
+          {field("Opening balance", walletOpening, setWalletOpening, { type: "number", min: "0", step: "0.01", required: true })}
+          <button style={ui.primary} type="submit">+ Add account</button>
+        </form>
+        {wallets.length > 0 && <div style={{ ...ui.grid, marginTop: 14 }}>
+          {wallets.map((wallet) => <div key={wallet.id} style={{ border: "1px solid var(--border, #e5e7eb)", borderRadius: 14, padding: 14 }}>
+            <div style={ui.row}><strong>{wallet.name}</strong><button type="button" style={ui.secondary} onClick={() => { if (window.confirm(`Delete account "${wallet.name}" and its account transactions?`)) onWalletsChange(wallets.filter((item) => item.id !== wallet.id)); }}>Delete</button></div>
+            <div style={ui.muted}>{wallet.type}</div>
+            <div style={{ fontSize: 23, fontWeight: 800, margin: "8px 0" }}>{money(walletBalance(wallet))}</div>
+            <div style={ui.muted}>{(wallet.transactions || []).length} account transactions</div>
+          </div>)}
+        </div>}
+        {wallets.length > 0 && <form onSubmit={addWalletTransaction} style={{ ...ui.grid, marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border, #eee)" }}>
+          <label style={ui.label}>Account
+            <select style={ui.input} value={txnWallet} onChange={(e) => setTxnWallet(e.target.value)} required><option value="">Choose account</option>{wallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}</select>
+          </label>
+          <label style={ui.label}>Transaction type
+            <select style={ui.input} value={txnDirection} onChange={(e) => setTxnDirection(e.target.value)}><option value="expense">Expense (subtract)</option><option value="income">Income (add)</option></select>
+          </label>
+          {field("Amount", txnAmount, setTxnAmount, { type: "number", min: "0.01", step: "0.01", required: true })}
+          {field("Description", txnDescription, setTxnDescription, { placeholder: "Groceries, salary...", required: true })}
+          <button style={ui.primary} type="submit">Record transaction</button>
+        </form>}
+        {wallets.length > 1 && <form onSubmit={transferBetweenWallets} style={{ ...ui.grid, marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border, #eee)" }}>
+          <div style={{ gridColumn: "1 / -1", fontWeight: 750 }}>Transfer between your accounts</div>
+          <label style={ui.label}>From
+            <select style={ui.input} value={transferFrom} onChange={(e) => setTransferFrom(e.target.value)} required><option value="">Source account</option>{wallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}</select>
+          </label>
+          <label style={ui.label}>To
+            <select style={ui.input} value={transferTo} onChange={(e) => setTransferTo(e.target.value)} required><option value="">Destination account</option>{wallets.map((wallet) => <option key={wallet.id} value={wallet.id}>{wallet.name}</option>)}</select>
+          </label>
+          {field("Transfer amount", transferAmount, setTransferAmount, { type: "number", min: "0.01", step: "0.01", required: true })}
+          <button style={ui.primary} type="submit">Transfer</button>
+        </form>}
+        {wallets.length === 0 && <p style={ui.muted}>Create your first account above to start tracking separate balances.</p>}
+      </section>
+    </div>
+  );
+}
+
 
 createRoot(document.getElementById("root")).render(<App />);

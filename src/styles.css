@@ -724,3 +724,48 @@ form > .save-btn{margin-top:6px}
 @keyframes spendora-intro-exit{0%,78%{opacity:1;visibility:visible;pointer-events:auto}100%{opacity:0;visibility:hidden;pointer-events:none}}
 @media(max-width:480px){.spendora-intro__content{padding:18px}.spendora-intro__orb{margin-bottom:25px}.spendora-intro__wordmark{font-size:clamp(30px,9vw,43px);letter-spacing:2px;text-indent:2px}.spendora-intro__line{margin-top:19px}.spendora-intro__tagline{letter-spacing:2px}.spendora-intro__grid{background-size:38px 38px}}
 @media(prefers-reduced-motion:reduce){.spendora-intro,.spendora-intro *{animation-duration:.01ms!important;animation-delay:0ms!important;transition-duration:.01ms!important}.spendora-intro__letter{opacity:1;transform:none;filter:none}.spendora-intro__line{width:min(260px,62vw)}.spendora-intro__tagline{opacity:1;transform:none}}
+
+/* =========================================================
+   Spendora Smart Tools — shared theme aliases and responsive polish
+   These aliases connect the Smart Tools inline styles to the
+   existing light/dark theme tokens above.
+   ========================================================= */
+:root{
+  --card:var(--surface);
+  --border:var(--line);
+  --text:var(--ink);
+  --input-bg:var(--surface);
+  --soft:var(--accent-soft);
+}
+:root[data-theme="dark"]{
+  --card:var(--surface);
+  --border:var(--line);
+  --text:var(--ink);
+  --input-bg:var(--surface);
+  --soft:var(--accent-soft);
+}
+.spendora-smart-tools{width:100%;min-width:0;color:var(--ink)}
+.spendora-smart-tools>section{min-width:0;box-shadow:var(--shadow-sm);transition:border-color .18s ease,box-shadow .18s ease}
+.spendora-smart-tools>section:hover{border-color:var(--line-strong)}
+.spendora-smart-tools input,
+.spendora-smart-tools select,
+.spendora-smart-tools textarea{max-width:100%;color:var(--ink);background:var(--surface);border-color:var(--line-strong)}
+.spendora-smart-tools input:focus,
+.spendora-smart-tools select:focus,
+.spendora-smart-tools textarea:focus{border-color:var(--accent);outline:3px solid rgba(15,118,110,.13);outline-offset:1px}
+.spendora-smart-tools button{transition:transform .14s ease,filter .14s ease,background .14s ease}
+.spendora-smart-tools button:active{transform:translateY(1px)}
+.spendora-smart-tools img{display:block;max-width:100%;height:auto}
+.spendora-smart-tools form{min-width:0}
+.spendora-smart-tools label{min-width:0;overflow-wrap:anywhere}
+@media(max-width:560px){
+  .spendora-smart-tools{gap:14px!important;padding-bottom:78px!important}
+  .spendora-smart-tools>section{padding:14px!important;border-radius:14px!important}
+  .spendora-smart-tools h2{font-size:16px!important}
+  .spendora-smart-tools button{max-width:100%;white-space:normal}
+}
+@media(prefers-reduced-motion:reduce){
+  .spendora-smart-tools>section,
+  .spendora-smart-tools button{transition:none!important}
+}
+
