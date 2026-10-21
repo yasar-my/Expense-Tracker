@@ -1154,6 +1154,57 @@ function App() {
     });
   }
 
+  function duplicateExpense(type, item) {
+    if (!item || !["travel", "food", "snacks", "rent", "other"].includes(type)) return;
+    const duplicate = { ...item, id: undefined };
+    saveExpense(type, duplicate);
+    flash("Transaction duplicated");
+  }
+
+  function exportExpensesCsv(expenses, fromDate, toDate) {
+    const headers = ["Date", "Category", "Description", "Payment Method", "Amount", "Notes", "Tags"];
+    const cell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const rows = expenses.map((item) => [
+      item.date,
+      categoryOf(item, t),
+      descOf(item, t),
+      item.paymentMethod || "Not specified",
+      Number(item.amount || 0).toFixed(2),
+      item.notes || "",
+      Array.isArray(item.tags) ? item.tags.join(", ") : ""
+    ]);
+    const categoryTotals = {};
+    expenses.forEach((item) => {
+      const category = categoryOf(item, t);
+      categoryTotals[category] = (categoryTotals[category] || 0) + Number(item.amount || 0);
+    });
+    const summaryRows = [["Category-wise totals"], ["Category", "Total amount"], ...Object.entries(categoryTotals).map(([name, amount]) => [name, amount.toFixed(2)]), ["Grand total", sumBy(expenses).toFixed(2)]];
+    const csv = [headers, ...rows, [], ...summaryRows].map((row) => row.map(cell).join(",")).join("\r\n");
+    const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `spendora-expenses-${fromDate || "all"}-to-${toDate || "all"}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    flash("CSV report downloaded");
+  }
+
+  function exportExpensesPdf(expenses, fromDate, toDate) {
+    const total = sumBy(expenses);
+    const categoryTotals = {};
+    expenses.forEach((item) => {
+      const category = categoryOf(item, t);
+      categoryTotals[category] = (categoryTotals[category] || 0) + Number(item.amount || 0);
+    });
+    const esc = (value) => String(value ?? "").replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
+    const tableRows = expenses.map((item) => `<tr><td>${esc(item.date)}</td><td>${esc(categoryOf(item, t))}</td><td>${esc(descOf(item, t))}</td><td>${esc(item.paymentMethod || "Not specified")}</td><td style="text-align:right">${esc(money(item.amount))}</td></tr>`).join("");
+    const categoryRows = Object.entries(categoryTotals).map(([name, amount]) => `<tr><td>${esc(name)}</td><td style="text-align:right">${esc(money(amount))}</td></tr>`).join("");
+    printHtml(`<!doctype html><html><head><meta charset="utf-8"><title>Spendora Expense Report</title><style>body{font:14px Arial,sans-serif;color:#102d23;padding:28px}h1{color:#064734}p{color:#476657}.summary{background:#e0ffc2;padding:14px;border-radius:10px;margin:18px 0}table{width:100%;border-collapse:collapse;margin:12px 0 24px}th{background:#064734;color:#e0ffc2;text-align:left}th,td{padding:9px;border:1px solid #cfe3c8}tr:nth-child(even){background:#f4ffe9}h2{margin-top:24px}</style></head><body><h1>Spendora — Expense Report</h1><p>Period: ${esc(fromDate || "All dates")} to ${esc(toDate || "All dates")} • Generated ${esc(today())}</p><div class="summary"><b>Total spent:</b> ${esc(money(total))} &nbsp; | &nbsp; <b>Transactions:</b> ${expenses.length}</div><h2>Category-wise totals</h2><table><thead><tr><th>Category</th><th>Amount</th></tr></thead><tbody>${categoryRows || "<tr><td colspan='2'>No expenses</td></tr>"}</tbody></table><h2>Transaction history</h2><table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Payment method</th><th>Amount</th></tr></thead><tbody>${tableRows || "<tr><td colspan='5'>No expenses in selected date range</td></tr>"}</tbody></table></body></html>`);
+  }
+
   function removeMoney(id) {
     const item = data.money.find((x) => x.id === id);
     if (!item) return;
@@ -1340,7 +1391,14 @@ function App() {
           )}
 
           {page === "expenses" && (
-            <Expenses all={all} onEdit={setEditing} onDelete={remove} />
+            <Expenses
+              all={all}
+              onEdit={setEditing}
+              onDelete={remove}
+              onDuplicate={duplicateExpense}
+              onExportCsv={exportExpensesCsv}
+              onExportPdf={exportExpensesPdf}
+            />
           )}
 
           {page === "food" && (
@@ -2623,32 +2681,75 @@ function Quick({ icon, label, onClick }) {
   );
 }
 
-function Expenses({ all, onEdit, onDelete }) {
+function Expenses({ all, onEdit, onDelete, onDuplicate, onExportCsv, onExportPdf }) {
   const t = useT();
+  const [search, setSearch] = useState("");
+  const [month, setMonth] = useState("all");
+  const [category, setCategory] = useState("all");
+  const [paymentMethod, setPaymentMethod] = useState("all");
+  const [sortBy, setSortBy] = useState("date-desc");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  const months = [...new Set(all.map((item) => getMonthKey(item.date)).filter(Boolean))].sort().reverse();
+  const categories = [...new Set(all.map((item) => categoryOf(item, t)))].sort((a, b) => a.localeCompare(b));
+  const methods = [...new Set(all.map((item) => item.paymentMethod || "Not specified"))].sort((a, b) => a.localeCompare(b));
+  const filtered = all.filter((item) => {
+    const text = `${descOf(item, t)} ${categoryOf(item, t)} ${item.notes || ""} ${(item.tags || []).join(" ")}`.toLowerCase();
+    if (search.trim() && !text.includes(search.trim().toLowerCase())) return false;
+    if (month !== "all" && getMonthKey(item.date) !== month) return false;
+    if (category !== "all" && categoryOf(item, t) !== category) return false;
+    if (paymentMethod !== "all" && (item.paymentMethod || "Not specified") !== paymentMethod) return false;
+    if (fromDate && item.date < fromDate) return false;
+    if (toDate && item.date > toDate) return false;
+    return true;
+  }).sort((a, b) => {
+    if (sortBy === "date-asc") return String(a.date).localeCompare(String(b.date));
+    if (sortBy === "amount-desc") return Number(b.amount || 0) - Number(a.amount || 0);
+    if (sortBy === "amount-asc") return Number(a.amount || 0) - Number(b.amount || 0);
+    return String(b.date).localeCompare(String(a.date));
+  });
 
   return (
     <section className="content">
-      <div className="panel">
+      <div className="panel transaction-tools">
         <div className="panel-head">
-          <div>
-            <h2>{t("exp_history")}</h2>
-            <p>{t("n_records", { n: all.length })}</p>
+          <div><h2>Advanced transaction management</h2><p>Search, filter, sort, duplicate and export your expenses.</p></div>
+          <strong className="transaction-count">{filtered.length} / {all.length}</strong>
+        </div>
+        <div className="transaction-filter-grid">
+          <label className="transaction-search-label">Search description
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search description, notes or tags…" />
+          </label>
+          <label>Month
+            <select value={month} onChange={(e) => setMonth(e.target.value)}><option value="all">All months</option>{months.map((key) => <option key={key} value={key}>{getMonthLabel(key)}</option>)}</select>
+          </label>
+          <label>Category
+            <select value={category} onChange={(e) => setCategory(e.target.value)}><option value="all">All categories</option>{categories.map((value) => <option key={value} value={value}>{value}</option>)}</select>
+          </label>
+          <label>Payment method
+            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}><option value="all">All methods</option>{methods.map((value) => <option key={value} value={value}>{value}</option>)}</select>
+          </label>
+          <label>Sort by
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="date-desc">Date: newest first</option><option value="date-asc">Date: oldest first</option><option value="amount-desc">Amount: high to low</option><option value="amount-asc">Amount: low to high</option></select>
+          </label>
+        </div>
+        <div className="report-range">
+          <div className="report-range-title"><b>Report date range</b><span>Choose dates for PDF or CSV export.</span></div>
+          <label>From<input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => setFromDate(e.target.value)} /></label>
+          <label>To<input type="date" value={toDate} min={fromDate || undefined} onChange={(e) => setToDate(e.target.value)} /></label>
+          <div className="report-actions">
+            <button type="button" className="btn btn-outline" onClick={() => onExportCsv(filtered, fromDate, toDate)}><Download size={15}/> Export CSV</button>
+            <button type="button" className="btn btn-primary" onClick={() => onExportPdf(filtered, fromDate, toDate)}><FileText size={15}/> Export PDF</button>
           </div>
         </div>
-
-        {all.length ? (
-          all.map((x) => (
-            <ExpenseRow
-              key={`${x.type}-${x.id}`}
-              x={x}
-              actions
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          ))
-        ) : (
-          <Empty />
-        )}
+        <div className="transaction-summary"><span>Filtered total</span><strong>{money(sumBy(filtered))}</strong><button type="button" className="link-btn" onClick={() => { setSearch(""); setMonth("all"); setCategory("all"); setPaymentMethod("all"); setSortBy("date-desc"); setFromDate(""); setToDate(""); }}>Clear filters</button></div>
+      </div>
+      <div className="panel">
+        <div className="panel-head"><div><h2>{t("exp_history")}</h2><p>{t("n_records", { n: filtered.length })}</p></div></div>
+        {filtered.length ? filtered.map((x) => (
+          <ExpenseRow key={`${x.type}-${x.id}`} x={x} actions onEdit={onEdit} onDelete={onDelete} onDuplicate={onDuplicate} />
+        )) : <Empty />}
       </div>
     </section>
   );
@@ -2697,7 +2798,7 @@ function Food({ data, totals, onAdd, onEdit, onDelete }) {
   );
 }
 
-function ExpenseRow({ x, actions, onEdit, onDelete }) {
+function ExpenseRow({ x, actions, onEdit, onDelete, onDuplicate }) {
   const t = useT();
   const icon =
     x.type === "travel" ? <TrainFront /> :
@@ -2712,7 +2813,7 @@ function ExpenseRow({ x, actions, onEdit, onDelete }) {
 
       <div className="expense-info">
         <b>{x.label || x.description || x.name}</b>
-        <span>{x.date}{x.type === "food" ? ` • ${x.food}` : ""}</span>
+        <span>{x.date}{x.type === "food" ? ` • ${x.food}` : ""}{x.paymentMethod ? ` • ${x.paymentMethod}` : ""}</span>
         {x.notes && <small className="expense-notes">{x.notes}</small>}
         {Array.isArray(x.tags) && x.tags.length > 0 && <div className="expense-tags">{x.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
       </div>
@@ -2723,6 +2824,9 @@ function ExpenseRow({ x, actions, onEdit, onDelete }) {
         <div className="row-actions">
           <button title={t("edit")} aria-label={t("edit")} onClick={() => onEdit({ type: x.type, item: x })}>
             <Edit3 size={15} />
+          </button>
+          <button title="Duplicate transaction" aria-label="Duplicate transaction" onClick={() => onDuplicate?.(x.type, x)}>
+            <Repeat size={15} />
           </button>
           <button title={t("delete")} aria-label={t("delete")} onClick={() => onDelete(x.type, x.id)}>
             <Trash2 size={15} />
@@ -2961,6 +3065,7 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveSingleFood }) {
   const [rentDesc, setRentDesc] = useState(type === "rent" ? initial?.description || "" : "");
   const [otherCategory, setOtherCategory] = useState(initial?.category || "Miscellaneous");
   const [notes, setNotes] = useState(initial?.notes || "");
+  const [paymentMethod, setPaymentMethod] = useState(initial?.paymentMethod || "UPI");
   const [tagsText, setTagsText] = useState(Array.isArray(initial?.tags) ? initial.tags.join(", ") : "");
   const [naturalText, setNaturalText] = useState("");
   const [voiceStatus, setVoiceStatus] = useState("");
@@ -3021,6 +3126,7 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveSingleFood }) {
         food: combinedFoodName,
         amount: totalFoodAmount,
         notes: notes.trim(),
+        paymentMethod,
         tags: tagsText.split(",").map((tag) => tag.trim()).filter(Boolean)
       };
 
@@ -3034,7 +3140,7 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveSingleFood }) {
     const numeric = Number(amount);
     if (!numeric || numeric <= 0) return;
 
-    const common = { id: initial?.id, date, amount: numeric, notes: notes.trim(), tags: tagsText.split(",").map((tag) => tag.trim()).filter(Boolean) };
+    const common = { id: initial?.id, date, amount: numeric, notes: notes.trim(), paymentMethod, tags: tagsText.split(",").map((tag) => tag.trim()).filter(Boolean) };
     const text = title.trim();
 
     if (kind === "travel") {
@@ -3406,6 +3512,17 @@ function ExpenseModal({ initial, type, onClose, onSave, onSaveSingleFood }) {
             </button>
           </div>
 
+          <label>Payment method
+            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+              <option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Debit card">Debit card</option><option value="Credit card">Credit card</option><option value="Bank transfer">Bank transfer</option><option value="Other">Other</option>
+            </select>
+          </label>
+          <label>Notes (optional)
+            <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add details about this expense" />
+          </label>
+          <label>Tags (comma-separated)
+            <input value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="necessary, shared, one-time" />
+          </label>
           <div className="save-row">
             <button className="save-btn" type="submit">
               <Check size={18} />

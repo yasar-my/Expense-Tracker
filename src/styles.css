@@ -1,6 +1,5 @@
 /* =========================================================
-   RoomLife — Light + Dark theme (stone + teal)
-   Edit the variables below to re-theme the whole app.
+   Spendora — Forest Green + Leaf Green theme
    ========================================================= */
 :root{
   --bg:#f6f5f2;
@@ -52,7 +51,7 @@ body{
 button,input,select{font:inherit}
 button{cursor:pointer}
 button:disabled{cursor:not-allowed}
-button:focus-visible,input:focus-visible,select:focus-visible,label:focus-within{outline:3px solid rgba(15,118,110,.25);outline-offset:2px}
+button:focus-visible,input:focus-visible,select:focus-visible,label:focus-within{outline:3px solid rgba(224,255,194,.28);outline-offset:2px}
 .app{min-height:100vh}
 h1{font-size:28px;line-height:1.15;margin:6px 0 0;letter-spacing:-.035em}
 h2{font-size:15px;margin:0;font-weight:700;letter-spacing:-.01em}
@@ -400,7 +399,7 @@ label{font-size:12px;font-weight:600;color:var(--ink-2)}
 input,select{width:100%;border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius-sm);padding:11px 12px;margin-top:7px;font-size:13px;color:var(--ink);transition:border-color .15s ease,box-shadow .15s ease}
 input::placeholder{color:#b9b4ad}
 input:hover,select:hover{border-color:var(--muted)}
-input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(15,118,110,.14)}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,255,194,.14)}
 .amount-input{font-size:22px;font-weight:700}
 .optional{font-weight:400;color:var(--faint)}
 
@@ -521,37 +520,31 @@ form > .save-btn{margin-top:6px}
 /* ---------- DARK MODE ---------- */
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --bg:#111312;
-  --surface:#1b1d1c;
-  --surface-soft:#222524;
-  --ink:#f2f1ee;
-  --ink-2:#d4d2cd;
-  --muted:#a29e97;
-  --faint:#7f7b75;
-  --line:#2d302e;
-  --line-strong:#40443f;
-
-  --accent:#0f9488;
-  --accent-600:#5eead4;
-  --accent-soft:#102825;
-  --accent-line:#1f524c;
-  --success:#4ade80;
-  --success-soft:#10261a;
-  --danger:#f87171;
-  --danger-soft:#2c1517;
-  --danger-line:#5b2326;
-  --warn:#fbbf24;
-  --warn-soft:#2b2210;
-
-  --c-rent:#94a3b8;
-  --c-travel:#38bdf8;
-  --c-food:#fbbf24;
-  --c-snacks:#4ade80;
-  --c-other:#c084fc;
-
-  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
-  --shadow:0 6px 18px rgba(0,0,0,.45);
-  --shadow-lg:0 20px 48px rgba(0,0,0,.6);
+  --bg:#032b22;
+  --surface:#064734;
+  --surface-soft:#0a5a43;
+  --ink:#efffe5;
+  --ink-2:#d7f3c5;
+  --muted:#a9c9b4;
+  --faint:#739a85;
+  --line:#1b624b;
+  --line-strong:#2b795d;
+  --accent:#e0ffc2;
+  --accent-600:#bce99a;
+  --accent-soft:#0b4d39;
+  --accent-line:#6c9b7b;
+  --success:#b6e99a;
+  --success-soft:#103a2c;
+  --danger:#ff9b9b;
+  --danger-soft:#3a1b1b;
+  --danger-line:#754040;
+  --warn:#f7d879;
+  --warn-soft:#3b3216;
+  --c-rent:#b6e99a;
+  --c-travel:#7dddb7;
+  --c-food:#f7d879;
+  --c-snacks:#b6e99a;
+  --c-other:#d2edbd;
 }
 [data-theme="dark"] .bottombar{background:rgba(27,29,28,.96);box-shadow:0 -6px 20px rgba(0,0,0,.4)}
 [data-theme="dark"] .drawer{background:var(--surface)}
@@ -561,10 +554,10 @@ form > .save-btn{margin-top:6px}
 [data-theme="dark"] .bar,
 [data-theme="dark"] .budget-bar{background:#2a2d2b}
 [data-theme="dark"] input::placeholder{color:#6f6b65}
-[data-theme="dark"] .quick-strip-list button:hover{background:#163733}
+[data-theme="dark"] .quick-strip-list button:hover{background:#0b4d39}
 [data-theme="dark"] .btn-primary:hover,
 [data-theme="dark"] .fab:hover,
-[data-theme="dark"] .save-btn:hover{background:#13a89b;border-color:#13a89b}
+[data-theme="dark"] .save-btn:hover{background:#bce99a;border-color:#bce99a}
 [data-theme="dark"] .fab{box-shadow:0 10px 26px rgba(0,0,0,.5)}
 [data-theme="dark"] .toast{background:#2f3331;color:#fff;border:1px solid var(--line-strong)}
 [data-theme="dark"] .chip.on,
@@ -602,7 +595,7 @@ form > .save-btn{margin-top:6px}
 .heat-day:hover,
 .heat-cell:hover,
 .heat-grid button:hover,
-.heat-grid [role="button"]:hover{transform:translateY(-2px);box-shadow:0 3px 10px rgba(15,148,136,.16)}
+.heat-grid [role="button"]:hover{transform:translateY(-2px);box-shadow:0 3px 10px rgba(224,255,194,.16)}
 .heat-day:focus-visible,
 .heat-cell:focus-visible,
 .heat-grid button:focus-visible,
@@ -769,3 +762,23 @@ form > .save-btn{margin-top:6px}
   .spendora-smart-tools button{transition:none!important}
 }
 
+
+
+/* ---------- Advanced transactions and reports ---------- */
+.transaction-tools{margin-bottom:14px}
+.transaction-count{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-strong);border-radius:999px;padding:6px 10px;color:var(--accent);font-size:12px;white-space:nowrap}
+.transaction-filter-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}
+.transaction-filter-grid label,.report-range label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:var(--muted);min-width:0}
+.transaction-filter-grid input,.transaction-filter-grid select,.report-range input{width:100%;min-width:0;background:var(--surface-soft);color:var(--ink);border:1px solid var(--line-strong);border-radius:10px;padding:10px 11px;font-size:13px}
+.transaction-filter-grid .transaction-search-label{grid-column:span 2}
+.report-range{display:grid;grid-template-columns:minmax(140px,1fr) minmax(140px,1fr) auto;align-items:end;gap:12px;border-top:1px solid var(--line);margin-top:16px;padding-top:15px}
+.report-range-title{display:flex;flex-direction:column;gap:5px;grid-column:1/-1}
+.report-range-title b{font-size:13px}.report-range-title span{font-size:12px;color:var(--muted)}
+.report-actions{display:flex;gap:8px;flex-wrap:wrap}
+.report-actions .btn{white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.transaction-summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-top:14px}
+.transaction-summary span{color:var(--muted);font-size:12px}.transaction-summary strong{font-size:16px;color:var(--accent)}.transaction-summary .link-btn{margin-left:auto}
+.row-actions button[aria-label="Duplicate transaction"]{color:var(--accent)}
+.budget-panel.warn .budget-bar i{background:#f7d879!important}.budget-panel.over .budget-bar i{background:#ff7777!important}
+@media(max-width:700px){.transaction-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.transaction-filter-grid .transaction-search-label{grid-column:1/-1}.report-range{grid-template-columns:1fr 1fr}.report-actions{grid-column:1/-1}.report-actions .btn{flex:1;justify-content:center}}
+@media(max-width:420px){.transaction-filter-grid{grid-template-columns:1fr}.transaction-filter-grid .transaction-search-label{grid-column:auto}.report-range{grid-template-columns:1fr}.report-actions{grid-column:auto}.transaction-summary .link-btn{margin-left:0}}
