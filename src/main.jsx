@@ -2066,13 +2066,6 @@ function BudgetModal({ monthKey, current, onClose, onSave }) {
 
           <p className="hint">{t("budget_hint")}</p>
 
-          <label>Notes (optional)
-            <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add details about this expense" />
-          </label>
-          <label>Tags (comma-separated)
-            <input value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="necessary, shared, one-time" />
-          </label>
-
           <div className="save-row">
             <button className="save-btn" type="submit">
               <Check size={18} />
